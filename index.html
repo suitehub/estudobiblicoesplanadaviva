@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+  <title>Esplanada Viva — Estudos Bíblicos</title>
+  <meta
+    name="description"
+    content="Painel de acompanhamento de estudos bíblicos, progresso e decisão espiritual."
+  />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="appRoot">
+    <!-- ========================================================= -->
+    <!-- LOGIN -->
+    <!-- ========================================================= -->
+    <section id="authScreen" class="screen auth-screen">
+      <div class="auth-shell">
+        <div class="auth-brand-panel">
+          <div class="auth-brand-top">
+            <div class="auth-logo-wrap">
+              <img src="/logotwo.png" onerror="if(this.src.indexOf('logo.png')===-1)this.src='/logo.png';" class="auth-logo" alt="Logo Esplanada Viva" />
+            </div>
+            <div class="brand-badge">Esplanada Viva</div>
+          </div>
+
+          <h1 class="auth-title">Estudos Bíblicos</h1>
+          <p class="auth-subtitle">
+            Painel estratégico para acompanhar interessados, progresso e decisões espirituais.
+          </p>
+
+          <div class="auth-feature-list">
+            <div class="auth-feature-card">
+              <strong>Hierarquia clara</strong>
+              <span>Pastor, líder distrital, líder local e membro com acessos diferentes.</span>
+            </div>
+
+            <div class="auth-feature-card">
+              <strong>Controle por igreja</strong>
+              <span>Líder local vê sua igreja. Membro vê apenas os registros que ele criou.</span>
+            </div>
+
+            <div class="auth-feature-card">
+              <strong>Acompanhamento real</strong>
+              <span>Status, progresso, interessados em risco e prontidão para decisão.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-card-header">
+            <h2>Entrar</h2>
+            <p>Escolha o tipo de acesso e entre com suas credenciais.</p>
+          </div>
+
+          <form id="loginForm" class="auth-form">
+            <div class="field">
+              <label for="loginAccessType">Tipo de acesso</label>
+              <select id="loginAccessType" name="accessType" required>
+                <option value="admin">Pastor / Administrador</option>
+                <option value="distrital">Líder Distrital</option>
+                <option value="local">Líder Local</option>
+                <option value="membro">Membro</option>
+              </select>
+            </div>
+
+            <div class="field" id="loginLocalGroup" style="display:none;">
+              <label for="loginLocal">Igreja</label>
+              <select id="loginLocal" name="local">
+                <option value="">Selecionar igreja</option>
+              </select>
+            </div>
+
+            <div class="field" id="loginUsernameGroup" style="display:none;">
+              <label for="loginUsername">Usuário</label>
+              <input
+                id="loginUsername"
+                name="username"
+                type="text"
+                placeholder="Digite seu usuário"
+                autocomplete="username"
+              />
+            </div>
+
+            <div class="field" id="loginEmailGroup">
+              <label for="loginEmail">E-mail</label>
+              <input
+                id="loginEmail"
+                name="email"
+                type="email"
+                placeholder="seuemail@exemplo.com"
+                autocomplete="email"
+              />
+            </div>
+
+            <div class="field">
+              <label for="loginPassword">Senha</label>
+              <input
+                id="loginPassword"
+                name="password"
+                type="password"
+                placeholder="Digite sua senha"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+              Entrar
+            </button>
+          </form>
+
+          <div id="authMessage" class="feedback-message hidden"></div>
+
+          <div class="auth-card-footer">
+            <p>
+              O acesso é controlado conforme o perfil. Igrejas disponíveis no login são cadastradas pelo administrador.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- APP PRINCIPAL -->
+    <!-- ========================================================= -->
+    <section id="appScreen" class="screen app-screen hidden">
+      <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-top">
+            <div class="brand-block">
+              <div class="brand-logo-wrap">
+                <img src="/logo.png" onerror="if(this.src.indexOf('logotwo.png')===-1)this.src='/logotwo.png';" class="brand-logo" alt="Logo Esplanada Viva" />
+              </div>
+              <div>
+                <p class="brand-overline">Estudos Bíblicos</p>
+                <h2>Esplanada Viva</h2>
+              </div>
+            </div>
+
+            <div class="user-panel">
+              <div class="user-avatar" id="userAvatar">EV</div>
+              <div class="user-meta">
+                <strong id="loggedUserName">Usuário</strong>
+                <span id="loggedUserRole">Perfil</span>
+              </div>
+            </div>
+          </div>
+
+          <nav class="sidebar-nav">
+            <button class="nav-btn active" data-section="dashboardSection">
+              Dashboard
+            </button>
+
+            <button class="nav-btn" data-section="interessadosSection">
+              Interessados
+            </button>
+
+            <button class="nav-btn" data-section="instrutoresSection">
+              Instrutores
+            </button>
+
+            <button class="nav-btn" data-section="usuariosSection">
+              Usuários
+            </button>
+
+            <button class="nav-btn admin-only" data-section="locaisSection">
+              Locais
+            </button>
+
+            <button class="nav-btn admin-only" data-section="catalogoSection">
+              Catálogo de Estudos
+            </button>
+
+            <button class="nav-btn" data-section="relatoriosSection">
+              Relatórios
+            </button>
+          </nav>
+
+          <div class="sidebar-bottom">
+            <button id="logoutBtn" class="btn btn-ghost btn-block">
+              Sair
+            </button>
+          </div>
+        </aside>
+
+        <main class="main-content">
+          <header class="topbar">
+            <div>
+              <p class="page-kicker">Painel de acompanhamento</p>
+              <h1 id="pageTitle">Dashboard</h1>
+              <p class="page-description">
+                Gestão de interessados, progresso nos estudos e prontidão para decisão.
+              </p>
+            </div>
+
+            <div class="topbar-actions">
+              <button
+                id="openInteressadoModalBtn"
+                class="btn btn-primary"
+                type="button"
+              >
+                Novo interessado
+              </button>
+            </div>
+          </header>
+
+          <div id="globalMessage" class="feedback-message hidden"></div>
+
+          <!-- ===================== DASHBOARD ===================== -->
+          <section id="dashboardSection" class="page-section active">
+            <div id="metricsGrid" class="metrics-grid"></div>
+
+            <!-- NOVO BLOCO DE ESCALAS -->
+            <div id="dashboardScales" class="dashboard-scales">
+              <!-- app.js -->
+            </div>
+
+            <div class="dashboard-grid">
+              <div class="card">
+                <div class="card-header">
+                  <div>
+                    <h3>Interessados recentes</h3>
+                    <p>Últimos registros atualizados no sistema.</p>
+                  </div>
+                </div>
+                <div id="recentList" class="stack-list"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <div>
+                    <h3>Precisam de atenção</h3>
+                    <p>Em risco, sem contato recente ou prontos para decisão.</p>
+                  </div>
+                </div>
+                <div id="attentionList" class="stack-list"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================== INTERESSADOS ===================== -->
+          <section id="interessadosSection" class="page-section">
+            <div class="card">
+              <div class="card-header card-header-wrap">
+                <div>
+                  <h3>Interessados</h3>
+                  <p>Busca, filtro e gerenciamento dos registros.</p>
+                </div>
+
+                <button
+                  id="openInteressadoModalBtn2"
+                  class="btn btn-primary"
+                  type="button"
+                >
+                  Cadastrar
+                </button>
+              </div>
+
+              <div class="toolbar">
+                <div class="toolbar-field toolbar-grow">
+                  <input
+  id="searchInput"
+  type="text"
+  placeholder="Buscar por nome, telefone, igreja, série ou instrutor"
+/>
+                </div>
+
+                <div class="toolbar-field">
+                  <select id="statusFilter"></select>
+                </div>
+
+                <div class="toolbar-field">
+                  <select id="interestFilter"></select>
+                </div>
+
+                <div class="toolbar-field">
+                  <select id="serieFilter"></select>
+                </div>
+              </div>
+
+              <div class="table-shell">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+  <th>Nome / Telefone</th>
+  <th>Instrutores</th>
+  <th>Série</th>
+  <th>Progresso</th>
+  <th>Status</th>
+  <th>Interesse</th>
+  <th>Ações</th>
+</tr>
+                  </thead>
+                  <tbody id="interessadosTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================== INSTRUTORES ===================== -->
+          <section id="instrutoresSection" class="page-section">
+            <!-- HEADER DA ABA DE INSTRUTORES -->
+            <div class="instrutores-header-bar">
+              <div>
+                <p class="instrutores-kicker">PAINEL ESTRATÉGICO</p>
+                <h1 class="instrutores-title">Quadro de Instrutores e Classes</h1>
+                <p class="instrutores-description">
+                  Visualize os instrutores autorizados, carga horária de estudos bíblicos e alunos correspondentes por nível de liderança.
+                </p>
+              </div>
+              <div class="instrutores-top-actions">
+                <button id="openInteressadoModalBtn3" class="btn btn-primary" type="button">
+                  + Novo interessado
+                </button>
+              </div>
+            </div>
+
+            <!-- CARDS DE MÉTRICAS (4 CARDS) -->
+            <div class="instrutores-metrics-grid" id="instrutoresMetricsGrid">
+              <!-- Renderizado via app.js -->
+            </div>
+
+            <!-- BARRA DE BUSCA E FILTRO POR IGREJA -->
+            <div class="instrutores-toolbar">
+              <div class="instrutores-search-box">
+                <svg class="instrutores-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  id="instrutoresSearchInput"
+                  type="text"
+                  placeholder="Buscar instrutor por nome, nome da igreja ou email..."
+                />
+              </div>
+
+              <div class="instrutores-filter-group">
+                <label for="instrutoresIgrejaFilter" class="instrutores-filter-label">Igreja:</label>
+                <div class="instrutores-select-pill">
+                  <select id="instrutoresIgrejaFilter">
+                    <option value="Todas">Todas as Igrejas</option>
+                  </select>
+                  <svg class="instrutores-chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- SEÇÃO DE RELAÇÃO DE INSTRUTORES -->
+            <div class="instrutores-list-section">
+              <div class="instrutores-list-header">
+                <h3 class="instrutores-list-title">Relação de Instrutores Autorizados</h3>
+                <p class="instrutores-list-subtitle">
+                  Lista organizada por hierarquia e filiação. Clique nos cartões dos instrutores para visualizar a lista detalhada de seus respectivos alunos.
+                </p>
+              </div>
+
+              <!-- LISTA DE CARTÕES DE INSTRUTORES COM ACCORDION -->
+              <div id="instrutoresListContainer" class="instrutores-cards-list">
+                <!-- Renderizado via app.js -->
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================== USUÁRIOS ===================== -->
+          <section id="usuariosSection" class="page-section">
+            <div class="split-grid">
+              <div class="card">
+                <div class="card-header">
+                  <div>
+                    <h3>Usuários do sistema</h3>
+                    <p>Perfis cadastrados e ativos conforme o nível de acesso permitido.</p>
+                  </div>
+                </div>
+
+                <div class="toolbar" style="margin-bottom: 12px;">
+                  <div class="toolbar-field toolbar-grow">
+                    <input
+                      id="usuariosSearchInput"
+                      type="text"
+                      placeholder="Buscar usuário por nome, email ou perfil..."
+                    />
+                  </div>
+                </div>
+
+                <div id="usuariosList" class="stack-list"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <div>
+                    <h3>Novo usuário</h3>
+                    <p>Cadastre o tipo de acesso permitido para o usuário.</p>
+                  </div>
+                </div>
+
+                <form id="userForm" class="form-grid">
+                  <div class="field">
+                    <label for="novoUsuarioNome">Nome</label>
+                    <input id="novoUsuarioNome" type="text" />
+                  </div>
+
+                  <div class="field">
+                    <label for="novoUsuarioPerfil">Perfil</label>
+                    <select id="novoUsuarioPerfil">
+                      <option value="membro">Membro</option>
+                      <option value="local">Líder Local</option>
+                      <option value="distrital">Líder Distrital</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label for="novoUsuarioIgreja">Igreja</label>
+                    <select id="novoUsuarioIgreja"></select>
+                  </div>
+
+                  <div class="field">
+                    <label for="novoUsuarioDistrito">Distrito</label>
+                    <input
+                      id="novoUsuarioDistrito"
+                      type="text"
+                      value="Esplanada"
+                      readonly
+                    />
+                  </div>
+
+                  <div class="field" id="novoUsuarioUsernameGroup">
+                    <label for="novoUsuarioUsername">Usuário</label>
+                    <input
+                      id="novoUsuarioUsername"
+                      type="text"
+                      placeholder="Ex.: joao.silva"
+                    />
+                  </div>
+
+                  <div class="field" id="novoUsuarioSenhaLocalGroup">
+                    <label for="novoUsuarioSenhaLocal">Senha</label>
+                    <input
+                      id="novoUsuarioSenhaLocal"
+                      type="password"
+                      placeholder="Defina uma senha"
+                    />
+                  </div>
+
+                  <div class="field" id="novoUsuarioEmailGroup">
+                    <label for="novoUsuarioEmail">E-mail</label>
+                    <input
+                      id="novoUsuarioEmail"
+                      type="email"
+                      placeholder="seuemail@exemplo.com"
+                    />
+                  </div>
+
+                  <div class="field" id="novoUsuarioSenhaGroup">
+                    <label for="novoUsuarioSenha">Senha</label>
+                    <input
+                      id="novoUsuarioSenha"
+                      type="password"
+                      placeholder="Senha provisória"
+                    />
+                  </div>
+
+                  <div class="form-actions full-span">
+                    <button type="submit" class="btn btn-primary">
+                      Criar usuário
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================== LOCAIS ===================== -->
+          <section id="locaisSection" class="page-section">
+            <div class="split-grid">
+              <div class="card">
+                <div class="card-header">
+                  <div>
+                    <h3>Locais cadastrados</h3>
+                    <p>Igrejas e grupos do distrito cadastrados no sistema.</p>
+                  </div>
+                </div>
+
+                <div class="toolbar" style="margin-bottom: 12px;">
+                  <div class="toolbar-field toolbar-grow">
+                    <input
+                      id="locaisSearchInput"
+                      type="text"
+                      placeholder="Buscar igreja ou grupo por nome..."
+                    />
+                  </div>
+                </div>
+
+                <div id="locaisList" class="stack-list"></div>
+              </div>
+
+              <div class="card admin-only">
+                <div class="card-header">
+                  <div>
+                    <h3>Novo local</h3>
+                    <p>Cadastre igrejas e grupos que ficarão disponíveis no sistema e no login.</p>
+                  </div>
+                </div>
+
+                <form id="localForm" class="form-grid">
+                  <div class="field">
+                    <label for="novoLocalNome">Nome do local</label>
+                    <input
+                      id="novoLocalNome"
+                      type="text"
+                      placeholder="Ex.: Jardim Esplanada"
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label for="novoLocalTipo">Tipo</label>
+                    <select id="novoLocalTipo">
+                      <option value="igreja">Igreja</option>
+                      <option value="grupo">Grupo</option>
+                    </select>
+                  </div>
+
+                  <div class="form-actions full-span">
+                    <button type="submit" class="btn btn-primary">
+                      Adicionar local
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================== CATÁLOGO ===================== -->
+          <section id="catalogoSection" class="page-section">
+            <div class="split-grid">
+              <div class="card">
+                <div class="card-header">
+                  <div>
+                    <h3>Séries disponíveis</h3>
+                    <p>Catálogo híbrido com séries padrão e personalizadas.</p>
+                  </div>
+                </div>
+
+                <div class="toolbar" style="margin-bottom: 12px;">
+                  <div class="toolbar-field toolbar-grow">
+                    <input
+                      id="catalogoSearchInput"
+                      type="text"
+                      placeholder="Buscar série de estudo por título..."
+                    />
+                  </div>
+                </div>
+
+                <div id="seriesList" class="stack-list"></div>
+              </div>
+
+              <div class="card admin-only">
+                <div class="card-header">
+                  <div>
+                    <h3>Adicionar nova série</h3>
+                    <p>Cadastre novas séries sem fixar o catálogo para sempre.</p>
+                  </div>
+                </div>
+
+                <form id="serieForm" class="form-grid">
+                  <div class="field">
+                    <label for="novaSerieNome">Nome da série</label>
+                    <input
+                      id="novaSerieNome"
+                      type="text"
+                      placeholder="Ex.: Apocalipse Esperança"
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label for="novaSerieTotal">Total de estudos</label>
+                    <input
+                      id="novaSerieTotal"
+                      type="number"
+                      min="1"
+                      placeholder="Ex.: 26"
+                    />
+                  </div>
+
+                  <div class="form-actions full-span">
+                    <button type="submit" class="btn btn-primary">
+                      Adicionar série
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===================== RELATÓRIOS ===================== -->
+          <section id="relatoriosSection" class="page-section">
+            <div class="card" style="margin-bottom: 20px;">
+              <div class="card-header">
+                <div>
+                  <h3>Central de Relatórios & Exportações</h3>
+                  <p>Gere relatórios consolidados ou por módulos individuais em Excel (.xlsx com abas limpas) ou PDF formatado.</p>
+                </div>
+              </div>
+
+              <!-- Filtros de Exportação -->
+              <div class="report-filters-bar">
+                <div class="field">
+                  <label for="reportFilterIgreja">Filtrar por Igreja / Local</label>
+                  <select id="reportFilterIgreja">
+                    <option value="Todas">Todas as Igrejas</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="reportFilterStatus">Filtrar por Status</label>
+                  <select id="reportFilterStatus">
+                    <option value="Todos">Todos os Status</option>
+                    <option value="Ativo">Ativo (Estudando)</option>
+                    <option value="Pronto para apelo">Pronto para apelo</option>
+                    <option value="Pronto para batismo">Pronto para batismo</option>
+                    <option value="Batismo Realizado">Batismo Realizado</option>
+                    <option value="Concluído">Concluído</option>
+                    <option value="Pausado">Pausado</option>
+                    <option value="Desinteressado">Desinteressado</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="reportFilterSerie">Filtrar por Série</label>
+                  <select id="reportFilterSerie">
+                    <option value="Todas">Todas as Séries</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="reportFilterInteresse">Nível de Interesse</label>
+                  <select id="reportFilterInteresse">
+                    <option value="Todos">Todos</option>
+                    <option value="Alto">Alto</option>
+                    <option value="Médio">Médio</option>
+                    <option value="Baixo">Baixo</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card de Destaque: Relatório Geral Consolidado (Métricas & Visão Geral) -->
+            <div class="report-hero-card light-card">
+              <div class="report-hero-info">
+                <div class="report-hero-badge">Visão Geral Multi-Aba</div>
+                <h4>Relatório Geral Consolidado</h4>
+                <p>Consolida todas as seções do distrito em um único arquivo: Resumo Executivo de Indicadores, Relação de Estudantes, Painel de Instrutores, Estatísticas de Igrejas e Catálogo de Estudos.</p>
+                <div class="report-hero-stats" id="reportPreviewSummary">
+                  <span>Carregando dados...</span>
+                </div>
+              </div>
+              <div class="report-hero-actions">
+                <button type="button" id="btnExportExcelCompleto" class="btn btn-excel-lg">
+                  <span class="btn-icon">📊</span>
+                  <span>Excel Geral (.xlsx)</span>
+                </button>
+                <button type="button" id="btnExportPdfCompleto" class="btn btn-pdf-lg">
+                  <span class="btn-icon">📄</span>
+                  <span>PDF Geral (.pdf)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Grade de Relatórios por Módulos Separados -->
+            <div class="section-title-row" style="margin-bottom: 14px;">
+              <h4 style="font-size: 16px; font-weight: 700; color: var(--text);">Exportar Módulos Separadamente</h4>
+              <p style="font-size: 13px; color: var(--muted); margin-top: 2px;">Escolha uma seção específica para exportar apenas os dados correspondentes.</p>
+            </div>
+
+            <div class="report-modules-grid">
+              <!-- Módulo 0: Ficha Detalhada Completa -->
+              <div class="report-module-card" style="border-left: 4px solid var(--primary);">
+                <div class="report-module-header">
+                  <div class="report-module-icon">📑</div>
+                  <div>
+                    <h5>Fichas Detalhadas (Todos os Campos)</h5>
+                    <p>Exportação com telefones, endereços completos, notas pastorais sem cortes, instrutores e histórico.</p>
+                  </div>
+                </div>
+                <div class="report-module-actions">
+                  <button type="button" class="btn btn-excel btn-sm btn-block" data-export-type="excel" data-report="detalhado">
+                    📊 Excel Detalhado (.xlsx)
+                  </button>
+                  <button type="button" class="btn btn-pdf btn-sm btn-block" data-export-type="pdf" data-report="detalhado">
+                    📄 PDF Detalhado (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Módulo 1: Interessados / Estudantes (Sintético) -->
+              <div class="report-module-card">
+                <div class="report-module-header">
+                  <div class="report-module-icon">📋</div>
+                  <div>
+                    <h5>Estudantes & Interessados (Sintético)</h5>
+                    <p>Lista nominal resumida com telefones, séries, progresso, instrutores vinculados e status.</p>
+                  </div>
+                </div>
+                <div class="report-module-actions">
+                  <button type="button" class="btn btn-excel btn-sm btn-block" data-export-type="excel" data-report="interessados">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button type="button" class="btn btn-pdf btn-sm btn-block" data-export-type="pdf" data-report="interessados">
+                    📄 PDF (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Módulo 2: Instrutores & Discípulos -->
+              <div class="report-module-card">
+                <div class="report-module-header">
+                  <div class="report-module-icon">👨‍🏫</div>
+                  <div>
+                    <h5>Instrutores & Alunos</h5>
+                    <p>Agrupamento por instrutor, contatos, total de alunos sob sua custódia e progresso individual.</p>
+                  </div>
+                </div>
+                <div class="report-module-actions">
+                  <button type="button" class="btn btn-excel btn-sm btn-block" data-export-type="excel" data-report="instrutores">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button type="button" class="btn btn-pdf btn-sm btn-block" data-export-type="pdf" data-report="instrutores">
+                    📄 PDF (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Módulo 3: Locais e Igrejas -->
+              <div class="report-module-card">
+                <div class="report-module-header">
+                  <div class="report-module-icon">⛪</div>
+                  <div>
+                    <h5>Igrejas & Grupos</h5>
+                    <p>Resumo por congregação com contagem de estudantes em andamento e batismos alcançados.</p>
+                  </div>
+                </div>
+                <div class="report-module-actions">
+                  <button type="button" class="btn btn-excel btn-sm btn-block" data-export-type="excel" data-report="locais">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button type="button" class="btn btn-pdf btn-sm btn-block" data-export-type="pdf" data-report="locais">
+                    📄 PDF (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Módulo 4: Catálogo de Séries -->
+              <div class="report-module-card">
+                <div class="report-module-header">
+                  <div class="report-module-icon">📖</div>
+                  <div>
+                    <h5>Catálogo de Séries</h5>
+                    <p>Relação de séries cadastradas, total de lições e quantidade de alunos cursando cada guia bíblico.</p>
+                  </div>
+                </div>
+                <div class="report-module-actions">
+                  <button type="button" class="btn btn-excel btn-sm btn-block" data-export-type="excel" data-report="series">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button type="button" class="btn btn-pdf btn-sm btn-block" data-export-type="pdf" data-report="series">
+                    📄 PDF (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Módulo 5: Resumo Executivo / Indicadores -->
+              <div class="report-module-card">
+                <div class="report-module-header">
+                  <div class="report-module-icon">📊</div>
+                  <div>
+                    <h5>Resumo de Indicadores</h5>
+                    <p>Métricas gerais consolidadas, contagem por status, prontos para batismo e batismos realizados.</p>
+                  </div>
+                </div>
+                <div class="report-module-actions">
+                  <button type="button" class="btn btn-excel btn-sm btn-block" data-export-type="excel" data-report="resumo">
+                    📊 Excel (.xlsx)
+                  </button>
+                  <button type="button" class="btn btn-pdf btn-sm btn-block" data-export-type="pdf" data-report="resumo">
+                    📄 PDF (.pdf)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabela de Prévia Dinâmica -->
+            <div class="card" style="margin-top: 24px;">
+              <div class="card-header">
+                <div>
+                  <h3>Pré-visualização dos Registros Selecionados</h3>
+                  <p id="reportPreviewCount">Mostrando dados em tempo real conforme os filtros aplicados acima.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Igreja</th>
+                      <th>Série</th>
+                      <th>Progresso</th>
+                      <th>Status</th>
+                      <th>Instrutor(es)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reportPreviewTableBody">
+                    <tr>
+                      <td colspan="6" class="empty-state">Carregando dados para prévia...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL DE INTERESSADO -->
+  <!-- ========================================================= -->
+  <div id="interessadoModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="interessadoModalTitle">Novo interessado</h3>
+          <p>Cadastre o interessado, vincule um ou mais instrutores, defina a série e acompanhe o progresso.</p>
+        </div>
+        <button
+          type="button"
+          class="icon-btn"
+          id="closeInteressadoModalBtn"
+          aria-label="Fechar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="interessadoForm" class="form-grid">
+        <input type="hidden" id="interessadoId" />
+
+        <div class="field">
+          <label for="nome">Nome</label>
+          <input id="nome" type="text" required />
+        </div>
+
+        <div class="field">
+          <label for="telefone">Telefone</label>
+          <input id="telefone" type="text" />
+        </div>
+
+        <div class="field full-span">
+          <label for="endereco">Endereço</label>
+          <input id="endereco" type="text" />
+        </div>
+
+        <div class="field">
+          <label for="igreja">Igreja</label>
+          <select id="igreja" required></select>
+        </div>
+
+        <div class="field">
+          <label for="distrito">Distrito</label>
+          <input id="distrito" type="text" value="Esplanada" readonly />
+        </div>
+
+        <div class="field full-span">
+  <label>Instrutores</label>
+
+  <div id="instrutoresContainer" class="instrutores-container">
+    <div class="instrutor-row">
+      <select class="instrutor-select" required></select>
+      <button
+        type="button"
+        class="btn btn-secondary btn-sm remove-instrutor-btn"
+        style="display:none;"
+      >
+        Remover
+      </button>
+    </div>
+  </div>
+
+  <div class="form-actions" style="justify-content:flex-start; margin-top:8px;">
+    <button
+      type="button"
+      id="addInstrutorBtn"
+      class="btn btn-secondary btn-sm"
+    >
+      + Adicionar instrutor
+    </button>
+  </div>
+
+  <small class="helper-text">
+    Adicione um ou mais instrutores responsáveis por este interessado.
+  </small>
+</div>
+
+        <div class="field">
+          <label for="serieId">Série de estudos</label>
+          <select id="serieId" required></select>
+        </div>
+
+        <div class="field">
+          <label for="estudoAtual">Estudo atual</label>
+          <input id="estudoAtual" type="number" min="0" value="0" />
+          <small id="progressoPreview" class="helper-text">
+            0 de 0 • 0% • faltam 0
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="status">Status</label>
+          <select id="status"></select>
+        </div>
+
+        <div class="field">
+          <label for="interesse">Grau de interesse</label>
+          <select id="interesse"></select>
+        </div>
+
+        <div class="field">
+          <label for="ultimoContato">Data do último contato</label>
+          <input id="ultimoContato" type="date" />
+        </div>
+
+        <div class="field">
+          <label for="obsRapidas">Marcadores rápidos</label>
+          <select id="obsRapidas">
+            <option value="">Selecionar sugestão</option>
+            <option value="Analfabeto.">Analfabeto</option>
+            <option value="Dificuldade de locomoção.">Dificuldade de locomoção</option>
+            <option value="Precisa de acompanhamento mais próximo.">Precisa de acompanhamento</option>
+            <option value="Resistência familiar.">Resistência familiar</option>
+            <option value="Prefere estudo em áudio.">Prefere estudo em áudio</option>
+          </select>
+        </div>
+
+        <div class="field full-span">
+          <label for="observacoes">Observações</label>
+          <textarea
+            id="observacoes"
+            rows="5"
+            placeholder="Ex.: melhor horário, limitações, situação familiar, observações pastorais..."
+          ></textarea>
+        </div>
+
+        <div class="form-actions full-span">
+          <button type="button" id="resetFormBtn" class="btn btn-secondary">
+            Limpar
+          </button>
+          <button type="submit" class="btn btn-primary">
+  Salvar cadastro
+</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- LOADING -->
+  <!-- ========================================================= -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p>Carregando...</p>
+    </div>
+  </div>
+
+  <script type="module" src="./auth.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+{
+  "name": "Estudo Bíblico Esplanada Viva",
+  "description": "Aplicativo de Estudo Bíblico Esplanada Viva",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
