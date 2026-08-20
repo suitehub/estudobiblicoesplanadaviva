@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="icon" type="image/png" href="./logo.png" />
   <meta charset="UTF-8" />
   <meta
     name="viewport"
@@ -21,6 +21,21 @@
   />
 
   <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Importmap for native browser execution & GitHub Pages support -->
+  <script type="importmap">
+  {
+    "imports": {
+      "xlsx": "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm",
+      "jspdf": "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm",
+      "jspdf-autotable": "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/+esm"
+    }
+  }
+  </script>
+  <!-- Global script fallbacks -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
   <div id="appRoot">
@@ -32,7 +47,7 @@
         <div class="auth-brand-panel">
           <div class="auth-brand-top">
             <div class="auth-logo-wrap">
-              <img src="/logotwo.png" onerror="if(this.src.indexOf('logo.png')===-1)this.src='/logo.png';" class="auth-logo" alt="Logo Esplanada Viva" />
+              <img src="./logotwo.png" onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='./logo.png';}else if(this.dataset.retried==='1'){this.dataset.retried='2';this.src='logo.png';}else{this.style.display='none';}" class="auth-logo" alt="Logo Esplanada Viva" />
             </div>
             <div class="brand-badge">Esplanada Viva</div>
           </div>
@@ -143,7 +158,7 @@
           <div class="sidebar-top">
             <div class="brand-block">
               <div class="brand-logo-wrap">
-                <img src="/logo.png" onerror="if(this.src.indexOf('logotwo.png')===-1)this.src='/logotwo.png';" class="brand-logo" alt="Logo Esplanada Viva" />
+                <img src="./logo.png" onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='./logotwo.png';}else if(this.dataset.retried==='1'){this.dataset.retried='2';this.src='logo.png';}else{this.style.display='none';}" class="brand-logo" alt="Logo Esplanada Viva" />
               </div>
               <div>
                 <p class="brand-overline">Estudos Bíblicos</p>

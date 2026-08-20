@@ -1,6 +1,54 @@
-import * as XLSX from "xlsx";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+// Universal helper to load XLSX seamlessly in any environment (GitHub Pages, Live Server, Bundler, CDN)
+async function getXLSX() {
+  if (typeof window !== "undefined" && window.XLSX) {
+    return window.XLSX;
+  }
+  try {
+    const mod = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm");
+    return mod.default || mod;
+  } catch (e) {
+    if (typeof window !== "undefined" && window.XLSX) return window.XLSX;
+    console.error("Erro ao carregar XLSX:", e);
+    throw new Error("Não foi possível carregar a biblioteca XLSX.");
+  }
+}
+
+// Universal helper to load jsPDF & autoTable seamlessly in any environment
+async function getPdfTools() {
+  let jsPDFClass = null;
+  let autoTableFn = null;
+
+  if (typeof window !== "undefined") {
+    if (window.jspdf && window.jspdf.jsPDF) {
+      jsPDFClass = window.jspdf.jsPDF;
+    }
+    if (window.autoTable) {
+      autoTableFn = window.autoTable;
+    } else if (window.jspdfAutoTable) {
+      autoTableFn = window.jspdfAutoTable;
+    }
+  }
+
+  if (!jsPDFClass) {
+    try {
+      const jspdfMod = await import("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm");
+      jsPDFClass = jspdfMod.jsPDF || jspdfMod.default;
+    } catch (e) {
+      console.warn("Falha ao importar jsPDF ESM:", e);
+    }
+  }
+
+  if (!autoTableFn) {
+    try {
+      const atMod = await import("https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/+esm");
+      autoTableFn = atMod.default || atMod;
+    } catch (e) {
+      console.warn("Falha ao importar jspdf-autotable ESM:", e);
+    }
+  }
+
+  return { jsPDF: jsPDFClass, autoTable: autoTableFn };
+}
 
 export function formatDateBr(isoOrDate) {
   if (!isoOrDate) return "-";
@@ -280,7 +328,11 @@ export function buildInstructorsData(interessados, usuarios, state = {}) {
 /* =========================================================
    EXCEL EXPORT (Multi-sheet & Clean Structure)
 ========================================================= */
-export function exportExcelReport({ reportType, filters, state }) {
+export async function exportExcelReport({ reportType, filters, state }) {
+  const XLSX = await getXLSX();
+  if (!XLSX || !XLSX.utils) {
+    throw new Error("Biblioteca XLSX não inicializada corretamente.");
+  }
   const wb = XLSX.utils.book_new();
   const filteredInteressados = filterInteressadosForReport(state.interessados, filters, state);
   const nowStr = formatDateTimeBr();
@@ -490,13 +542,30 @@ export function exportExcelReport({ reportType, filters, state }) {
 /* =========================================================
    PDF EXPORT (High-craft Document with Autotable)
 ========================================================= */
-export function exportPdfReport({ reportType, filters, state }) {
+export async function exportPdfReport({ reportType, filters, state }) {
+  const { jsPDF, autoTable } = await getPdfTools();
+  if (!jsPDF) {
+    throw new Error("Não foi possível carregar o gerador de PDF.");
+  }
+
   const isLandscape = true;
   const doc = new jsPDF({
     orientation: isLandscape ? "landscape" : "portrait",
     unit: "mm",
     format: "a4"
   });
+
+  const runAutoTable = (options) => {
+    if (typeof autoTable === "function") {
+      autoTable(doc, options);
+    } else if (typeof doc.autoTable === "function") {
+      doc.autoTable(options);
+    } else if (typeof window !== "undefined" && typeof window.jspdfAutoTable === "function") {
+      window.jspdfAutoTable(doc, options);
+    }
+  };
+
+  const getFinalY = () => (doc.lastAutoTable ? doc.lastAutoTable.finalY : currentY + 30);
 
   const primaryColor = [24, 121, 78]; // #18794e
   const burgundyColor = [155, 34, 38];
@@ -594,7 +663,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       item.observacoes
     ]);
 
-    autoTable(doc, {
+    runAutoTable({
       startY: currentY,
       head: [[
         "#",
@@ -620,7 +689,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       }
     });
 
-    currentY = doc.lastAutoTable.finalY + 10;
+    currentY = getFinalY() + 10;
   }
 
   // 1. Resumo Executivo / Métricas
@@ -631,7 +700,7 @@ export function exportPdfReport({ reportType, filters, state }) {
     const batizados = filteredInteressados.filter((i) => i.status === "Batismo Realizado" || i.status === "Concluído").length;
     const pausados = filteredInteressados.filter((i) => i.status === "Pausado" || i.status === "Desinteressado").length;
 
-    autoTable(doc, {
+    runAutoTable({
       startY: currentY,
       head: [["Indicador / Métrica", "Quantidade / Valor", "Status / Detalhes"]],
       body: [
@@ -652,7 +721,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       }
     });
 
-    currentY = doc.lastAutoTable.finalY + 10;
+    currentY = getFinalY() + 10;
   }
 
   // 2. Tabela de Estudantes / Interessados (Padrão ou parte do Completo)
@@ -675,7 +744,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       item.instrutoresString
     ]);
 
-    autoTable(doc, {
+    runAutoTable({
       startY: currentY,
       head: [["#", "Nome do Estudante", "Telefone", "Igreja", "Série", "Progresso", "Status", "Interesse", "Instrutor(es)"]],
       body: tableBody.length > 0 ? tableBody : [["-", "Nenhum estudante encontrado", "-", "-", "-", "-", "-", "-", "-"]],
@@ -695,7 +764,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       }
     });
 
-    currentY = doc.lastAutoTable.finalY + 10;
+    currentY = getFinalY() + 10;
   }
 
   // 3. Tabela de Instrutores e Alunos
@@ -731,7 +800,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       }
     });
 
-    autoTable(doc, {
+    runAutoTable({
       startY: currentY,
       head: [["Instrutor", "Igreja", "Contato", "Total", "Estudante Vinculado", "Status", "Série & Progresso"]],
       body: tableBody.length > 0 ? tableBody : [["-", "-", "-", "-", "Nenhum instrutor encontrado", "-", "-"]],
@@ -766,7 +835,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       ];
     });
 
-    autoTable(doc, {
+    runAutoTable({
       startY: currentY,
       head: [["Igreja / Grupo Local", "Tipo", "Total de Estudantes", "Estudando (Ativos)", "Batismos / Concluídos"]],
       body: tableBody.length > 0 ? tableBody : [["-", "-", "-", "-", "-"]],
@@ -795,7 +864,7 @@ export function exportPdfReport({ reportType, filters, state }) {
       ];
     });
 
-    autoTable(doc, {
+    runAutoTable({
       startY: currentY,
       head: [["Nome da Série de Estudo", "Total de Lições", "Classificação", "Alunos Matriculados"]],
       body: tableBody.length > 0 ? tableBody : [["-", "-", "-", "-"]],

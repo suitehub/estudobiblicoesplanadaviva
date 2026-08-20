@@ -3347,9 +3347,10 @@ locaisList?.addEventListener("click", async (event) => {
   reportInteresseEl?.addEventListener("change", updateReportsFromFilters);
 
   // Relatório Detalhado (Dossiê Completo com 100% dos dados)
-  document.getElementById("btnExportExcelDetalhado")?.addEventListener("click", () => {
+  document.getElementById("btnExportExcelDetalhado")?.addEventListener("click", async () => {
     try {
-      exportExcelReport({ reportType: "detalhado", filters: reportFilters, state });
+      showMessage("Gerando arquivo Excel Detalhado...", "info");
+      await exportExcelReport({ reportType: "detalhado", filters: reportFilters, state });
       showMessage("Relatório Detalhado em Excel (.xlsx) baixado com sucesso!", "success");
     } catch (err) {
       console.error(err);
@@ -3357,9 +3358,10 @@ locaisList?.addEventListener("click", async (event) => {
     }
   });
 
-  document.getElementById("btnExportPdfDetalhado")?.addEventListener("click", () => {
+  document.getElementById("btnExportPdfDetalhado")?.addEventListener("click", async () => {
     try {
-      exportPdfReport({ reportType: "detalhado", filters: reportFilters, state });
+      showMessage("Gerando arquivo PDF Detalhado...", "info");
+      await exportPdfReport({ reportType: "detalhado", filters: reportFilters, state });
       showMessage("Relatório Detalhado em PDF (.pdf) baixado com sucesso!", "success");
     } catch (err) {
       console.error(err);
@@ -3368,9 +3370,10 @@ locaisList?.addEventListener("click", async (event) => {
   });
 
   // Relatório Geral Completo (Multi-aba)
-  document.getElementById("btnExportExcelCompleto")?.addEventListener("click", () => {
+  document.getElementById("btnExportExcelCompleto")?.addEventListener("click", async () => {
     try {
-      exportExcelReport({ reportType: "completo", filters: reportFilters, state });
+      showMessage("Gerando arquivo Excel Geral...", "info");
+      await exportExcelReport({ reportType: "completo", filters: reportFilters, state });
       showMessage("Relatório Geral em Excel (.xlsx) baixado com sucesso!", "success");
     } catch (err) {
       console.error(err);
@@ -3378,9 +3381,10 @@ locaisList?.addEventListener("click", async (event) => {
     }
   });
 
-  document.getElementById("btnExportPdfCompleto")?.addEventListener("click", () => {
+  document.getElementById("btnExportPdfCompleto")?.addEventListener("click", async () => {
     try {
-      exportPdfReport({ reportType: "completo", filters: reportFilters, state });
+      showMessage("Gerando arquivo PDF Geral...", "info");
+      await exportPdfReport({ reportType: "completo", filters: reportFilters, state });
       showMessage("Relatório Geral em PDF (.pdf) baixado com sucesso!", "success");
     } catch (err) {
       console.error(err);
@@ -3389,7 +3393,7 @@ locaisList?.addEventListener("click", async (event) => {
   });
 
   // Delegated buttons for individual module downloads
-  document.getElementById("relatoriosSection")?.addEventListener("click", (e) => {
+  document.getElementById("relatoriosSection")?.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-export-type]");
     if (!btn) return;
 
@@ -3398,10 +3402,12 @@ locaisList?.addEventListener("click", async (event) => {
 
     try {
       if (exportType === "excel") {
-        exportExcelReport({ reportType: reportModule, filters: reportFilters, state });
+        showMessage(`Gerando relatório de ${reportModule} em Excel...`, "info");
+        await exportExcelReport({ reportType: reportModule, filters: reportFilters, state });
         showMessage(`Relatório de ${reportModule} em Excel gerado com sucesso!`, "success");
       } else if (exportType === "pdf") {
-        exportPdfReport({ reportType: reportModule, filters: reportFilters, state });
+        showMessage(`Gerando relatório de ${reportModule} em PDF...`, "info");
+        await exportPdfReport({ reportType: reportModule, filters: reportFilters, state });
         showMessage(`Relatório de ${reportModule} em PDF gerado com sucesso!`, "success");
       }
     } catch (err) {
