@@ -188,6 +188,10 @@
               Instrutores
             </button>
 
+            <button class="nav-btn" data-section="agendaSection">
+              Controle de Estudos
+            </button>
+
             <button class="nav-btn" data-section="usuariosSection">
               Usuários
             </button>
@@ -389,6 +393,125 @@
               <div id="instrutoresListContainer" class="instrutores-cards-list">
                 <!-- Renderizado via app.js -->
               </div>
+            </div>
+          </section>
+
+          <!-- ===================== CONTROLE DE ESTUDOS ===================== -->
+          <section id="agendaSection" class="page-section">
+            <div class="agenda-header-bar">
+              <div>
+                <div class="agenda-kicker-row">
+                  <span class="agenda-kicker">GESTÃO PASTORAL & ESCALA</span>
+                  <span id="agendaRoleBadge" class="agenda-role-badge">Visão Geral</span>
+                </div>
+                <h1 class="agenda-title">Controle de Estudos Bíblicos</h1>
+                <p class="agenda-description">
+                  Acompanhe os estudos bíblicos do dia e da semana com horário, interessado e instrutor responsável, organizado pela hierarquia de acesso.
+                </p>
+              </div>
+
+              <div class="agenda-top-actions">
+                <button id="seedAgendaBtn" class="btn btn-secondary btn-sm" type="button" title="Preencher escala inicial a partir dos interessados cadastrados">
+                  ⚡ Sincronizar Interessados
+                </button>
+                <button id="openAgendaModalBtn" class="btn btn-primary" type="button">
+                  + Agendar Estudo
+                </button>
+              </div>
+            </div>
+
+            <!-- CARDS DE MÉTRICAS DA SEMANA -->
+            <div class="agenda-metrics-grid" id="agendaMetricsGrid">
+              <!-- Renderizado via app.js -->
+            </div>
+
+            <!-- BARRA DE CONTROLE: NAVEGAÇÃO DE SEMANA E MODOS DE VISUALIZAÇÃO -->
+            <div class="agenda-controls-panel">
+              <div class="agenda-week-nav">
+                <button id="agendaPrevWeekBtn" class="btn btn-ghost btn-sm" type="button" title="Semana anterior">
+                  ◀ Anterior
+                </button>
+                <button id="agendaCurrentWeekBtn" class="btn btn-secondary btn-sm active" type="button">
+                  Semana Atual
+                </button>
+                <button id="agendaNextWeekBtn" class="btn btn-ghost btn-sm" type="button" title="Próxima semana">
+                  Próxima ▶
+                </button>
+                <div class="agenda-week-badge" id="agendaWeekLabel">
+                  Carregando semana...
+                </div>
+              </div>
+
+              <div class="agenda-view-switcher">
+                <button id="btnViewSemana" class="btn btn-view active" type="button" data-view="semana">
+                  📅 Grade Semanal (7 Dias)
+                </button>
+                <button id="btnViewDia" class="btn btn-view" type="button" data-view="dia">
+                  📋 Estudos do Dia / Hoje
+                </button>
+                <button id="btnViewLista" class="btn btn-view" type="button" data-view="lista">
+                  📑 Lista Completa
+                </button>
+              </div>
+            </div>
+
+            <!-- BARRA DE FILTROS HIERÁRQUICOS -->
+            <div class="agenda-filters-bar">
+              <div class="agenda-filter-search">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  id="agendaSearchInput"
+                  type="text"
+                  placeholder="Buscar por interessado, instrutor, telefone, horário..."
+                />
+              </div>
+
+              <div class="agenda-filter-group" id="agendaIgrejaFilterGroup">
+                <label for="agendaIgrejaFilter">Igreja:</label>
+                <select id="agendaIgrejaFilter">
+                  <option value="Todas">Todas as Igrejas</option>
+                </select>
+              </div>
+
+              <div class="agenda-filter-group" id="agendaInstrutorFilterGroup">
+                <label for="agendaInstrutorFilter">Instrutor:</label>
+                <select id="agendaInstrutorFilter">
+                  <option value="Todos">Todos os Instrutores</option>
+                </select>
+              </div>
+
+              <div class="agenda-filter-group">
+                <label for="agendaDiaFilter">Dia:</label>
+                <select id="agendaDiaFilter">
+                  <option value="Todos">Todos os Dias</option>
+                  <option value="domingo">Domingo</option>
+                  <option value="segunda">Segunda-feira</option>
+                  <option value="terca">Terça-feira</option>
+                  <option value="quarta">Quarta-feira</option>
+                  <option value="quinta">Quinta-feira</option>
+                  <option value="sexta">Sexta-feira</option>
+                  <option value="sabado">Sábado</option>
+                </select>
+              </div>
+
+              <div class="agenda-filter-group">
+                <label for="agendaStatusFilter">Status:</label>
+                <select id="agendaStatusFilter">
+                  <option value="Todos">Todos os Status</option>
+                  <option value="Agendado">Agendado</option>
+                  <option value="Confirmado">Confirmado</option>
+                  <option value="Realizado">Realizado</option>
+                  <option value="Cancelado / Remarcado">Cancelado / Remarcado</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- CONTAINER DINÂMICO CONFORME O MODO DE VISUALIZAÇÃO -->
+            <div id="agendaContentArea" class="agenda-content-area">
+              <!-- Renderizado dinamicamente via app.js -->
             </div>
           </section>
 
@@ -988,6 +1111,139 @@
           <button type="submit" class="btn btn-primary">
   Salvar cadastro
 </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL DE CONTROLE DE ESTUDOS (AGENDAMENTO) -->
+  <!-- ========================================================= -->
+  <div id="agendaModalBackdrop" class="modal-backdrop hidden">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="agendaModalTitle">Agendar Estudo Bíblico</h3>
+          <p>Organize o dia da semana, horário, aluno e instrutor responsável por este estudo.</p>
+        </div>
+        <button
+          type="button"
+          class="icon-btn"
+          id="closeAgendaModalBtn"
+          aria-label="Fechar modal"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="agendaForm" class="form-grid">
+        <input type="hidden" id="agendaId" />
+
+        <div class="field full-span">
+          <label for="agendaInteressadoSelect">Vincular Interessado Cadastrado (Preenchimento Rápido)</label>
+          <select id="agendaInteressadoSelect">
+            <option value="">Selecionar da lista de interessados (ou digitar manualmente abaixo)</option>
+          </select>
+          <small class="helper-text">
+            Ao selecionar um interessado, os campos de telefone, endereço, igreja, série bíblica e lição atual são preenchidos automaticamente.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="agendaInteressadoNome">Nome do Interessado / Aluno</label>
+          <input id="agendaInteressadoNome" type="text" placeholder="Nome completo" required />
+        </div>
+
+        <div class="field">
+          <label for="agendaInteressadoTelefone">Telefone / WhatsApp</label>
+          <input id="agendaInteressadoTelefone" type="text" placeholder="(99) 99999-9999" />
+        </div>
+
+        <div class="field full-span">
+          <label for="agendaEndereco">Endereço / Local do Encontro</label>
+          <input id="agendaEndereco" type="text" placeholder="Rua, número, bairro ou referência" />
+        </div>
+
+        <div class="field">
+          <label for="agendaIgreja">Igreja / Congregação</label>
+          <select id="agendaIgreja" required></select>
+        </div>
+
+        <div class="field">
+          <label for="agendaInstrutor">Instrutor Responsável</label>
+          <select id="agendaInstrutor" required></select>
+        </div>
+
+        <div class="field">
+          <label for="agendaDiaSemana">Dia da Semana</label>
+          <select id="agendaDiaSemana" required>
+            <option value="domingo">Domingo</option>
+            <option value="segunda">Segunda-feira</option>
+            <option value="terca">Terça-feira</option>
+            <option value="quarta">Quarta-feira</option>
+            <option value="quinta">Quinta-feira</option>
+            <option value="sexta">Sexta-feira</option>
+            <option value="sabado">Sábado</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="agendaHorario">Horário do Estudo</label>
+          <input id="agendaHorario" type="time" value="19:30" required />
+        </div>
+
+        <div class="field">
+          <label for="agendaData">Data Específica (Opcional)</label>
+          <input id="agendaData" type="date" />
+          <small class="helper-text">Deixe em branco para estudo fixo semanal.</small>
+        </div>
+
+        <div class="field">
+          <label for="agendaFormato">Formato do Estudo</label>
+          <select id="agendaFormato">
+            <option value="Presencial (Casa do Interessado)">Presencial (Casa do Interessado)</option>
+            <option value="Presencial (Igreja)">Presencial (Igreja)</option>
+            <option value="Presencial (Trabalho/Outro)">Presencial (Trabalho/Outro)</option>
+            <option value="Online / Vídeo">Online / Vídeo</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="agendaSerie">Série de Estudos</label>
+          <select id="agendaSerie"></select>
+        </div>
+
+        <div class="field">
+          <label for="agendaLicao">Lição Atual / Prevista</label>
+          <input id="agendaLicao" type="number" min="1" value="1" placeholder="Ex.: 4" />
+        </div>
+
+        <div class="field">
+          <label for="agendaStatus">Status do Estudo</label>
+          <select id="agendaStatus">
+            <option value="Confirmado">Confirmado</option>
+            <option value="Agendado">Agendado</option>
+            <option value="Realizado">Realizado</option>
+            <option value="Cancelado / Remarcado">Cancelado / Remarcado</option>
+          </select>
+        </div>
+
+        <div class="field full-span">
+          <label for="agendaObservacoes">Observações Pastorais / Lembretes</label>
+          <textarea
+            id="agendaObservacoes"
+            rows="3"
+            placeholder="Ex.: Levar guia impresso, família participa junta, orar pelo filho enfermo..."
+          ></textarea>
+        </div>
+
+        <div class="form-actions full-span">
+          <button type="button" id="agendaModalCancelBtn" class="btn btn-secondary">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary">
+            Salvar Estudo
+          </button>
         </div>
       </form>
     </div>

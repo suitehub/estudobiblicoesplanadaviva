@@ -36,6 +36,12 @@ import { app, db } from "./firebase-config.js";
 
 const DISTRITO_FIXO = "Esplanada";
 
+function getDefaultDayKey() {
+  const keys = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const d = new Date().getDay();
+  return keys[d] || "segunda";
+}
+
 /* =========================
    ESTADO
 ========================= */
@@ -45,6 +51,15 @@ const state = {
   series: [],
   usuarios: [],
   locais: [],
+  agenda: [],
+  agendaViewMode: "semana", // "semana" | "dia" | "lista"
+  agendaWeekOffset: 0,
+  selectedAgendaDayKey: getDefaultDayKey(),
+  agendaSearchQuery: "",
+  agendaIgrejaFilter: "Todas",
+  agendaInstrutorFilter: "Todos",
+  agendaDiaFilter: "Todos",
+  agendaStatusFilter: "Todos",
   activeSection: "dashboardSection"
 };
 
@@ -130,6 +145,48 @@ const novoUsuarioUsernameGroup = document.getElementById("novoUsuarioUsernameGro
 const novoUsuarioSenhaLocalGroup = document.getElementById("novoUsuarioSenhaLocalGroup");
 const novoUsuarioEmailGroup = document.getElementById("novoUsuarioEmailGroup");
 const novoUsuarioSenhaGroup = document.getElementById("novoUsuarioSenhaGroup");
+
+/* =========================
+   ELEMENTOS AGENDA
+========================= */
+const agendaModalBackdrop = document.getElementById("agendaModalBackdrop");
+const closeAgendaModalBtn = document.getElementById("closeAgendaModalBtn");
+const agendaModalCancelBtn = document.getElementById("agendaModalCancelBtn");
+const openAgendaModalBtn = document.getElementById("openAgendaModalBtn");
+const seedAgendaBtn = document.getElementById("seedAgendaBtn");
+const agendaForm = document.getElementById("agendaForm");
+const agendaId = document.getElementById("agendaId");
+const agendaModalTitle = document.getElementById("agendaModalTitle");
+const agendaInteressadoSelect = document.getElementById("agendaInteressadoSelect");
+const agendaInteressadoNome = document.getElementById("agendaInteressadoNome");
+const agendaInteressadoTelefone = document.getElementById("agendaInteressadoTelefone");
+const agendaEndereco = document.getElementById("agendaEndereco");
+const agendaIgreja = document.getElementById("agendaIgreja");
+const agendaInstrutor = document.getElementById("agendaInstrutor");
+const agendaDiaSemana = document.getElementById("agendaDiaSemana");
+const agendaHorario = document.getElementById("agendaHorario");
+const agendaData = document.getElementById("agendaData");
+const agendaFormato = document.getElementById("agendaFormato");
+const agendaSerie = document.getElementById("agendaSerie");
+const agendaLicao = document.getElementById("agendaLicao");
+const agendaStatus = document.getElementById("agendaStatus");
+const agendaObservacoes = document.getElementById("agendaObservacoes");
+
+const agendaSearchInput = document.getElementById("agendaSearchInput");
+const agendaIgrejaFilter = document.getElementById("agendaIgrejaFilter");
+const agendaInstrutorFilter = document.getElementById("agendaInstrutorFilter");
+const agendaDiaFilter = document.getElementById("agendaDiaFilter");
+const agendaStatusFilter = document.getElementById("agendaStatusFilter");
+const agendaContentArea = document.getElementById("agendaContentArea");
+const agendaMetricsGrid = document.getElementById("agendaMetricsGrid");
+const agendaWeekLabel = document.getElementById("agendaWeekLabel");
+const agendaRoleBadge = document.getElementById("agendaRoleBadge");
+const agendaPrevWeekBtn = document.getElementById("agendaPrevWeekBtn");
+const agendaCurrentWeekBtn = document.getElementById("agendaCurrentWeekBtn");
+const agendaNextWeekBtn = document.getElementById("agendaNextWeekBtn");
+const btnViewSemana = document.getElementById("btnViewSemana");
+const btnViewDia = document.getElementById("btnViewDia");
+const btnViewLista = document.getElementById("btnViewLista");
 
 /* =========================
    HELPERS
@@ -775,6 +832,7 @@ function getSectionTitle(sectionId) {
     dashboardSection: "Dashboard",
     interessadosSection: "Interessados",
     instrutoresSection: "Instrutores",
+    agendaSection: "Controle de Estudos",
     usuariosSection: "Usuários",
     locaisSection: "Locais",
     catalogoSection: "Catálogo de Estudos",
@@ -784,7 +842,13 @@ function getSectionTitle(sectionId) {
 }
 
 function getAllowedSections() {
-  const base = ["dashboardSection", "interessadosSection", "instrutoresSection", "relatoriosSection"];
+  const base = [
+    "dashboardSection",
+    "interessadosSection",
+    "instrutoresSection",
+    "agendaSection",
+    "relatoriosSection"
+  ];
   if (canSeeUsersSection()) base.push("usuariosSection");
   if (canManageLocais()) base.push("locaisSection");
   if (canManageSeries()) base.push("catalogoSection");
@@ -807,7 +871,7 @@ function setSection(sectionId) {
 
   const topbar = document.querySelector(".topbar");
   if (topbar) {
-    topbar.style.display = safeSection === "instrutoresSection" ? "none" : "";
+    topbar.style.display = (safeSection === "instrutoresSection" || safeSection === "agendaSection") ? "none" : "";
   }
 
   if (pageTitle) {
@@ -816,6 +880,10 @@ function setSection(sectionId) {
 
   if (safeSection === "instrutoresSection") {
     renderInstrutoresSection();
+  }
+
+  if (safeSection === "agendaSection") {
+    renderAgendaSection();
   }
 
   if (safeSection === "relatoriosSection") {
@@ -960,20 +1028,159 @@ async function loadInteressados() {
   }
 
   if (isMembro()) {
-    const q = query(
-      collection(db, "interessados"),
-      where("criadoPorId", "==", state.user.uid)
-    );
+    try {
+      const qCriados = query(
+        collection(db, "interessados"),
+        where("criadoPorId", "==", state.user.uid)
+      );
+      const snapCriados = await getDocs(qCriados);
+      const itemsMap = new Map();
+      snapCriados.docs.forEach((item) => {
+        itemsMap.set(item.id, { id: item.id, ...item.data() });
+      });
 
-    snap = await getDocs(q);
-    state.interessados = snap.docs.map((item) => ({
-      id: item.id,
-      ...item.data()
-    }));
-    return;
+      try {
+        const qAssigned = query(
+          collection(db, "interessados"),
+          where("instrutorIds", "array-contains", state.user.uid)
+        );
+        const snapAssigned = await getDocs(qAssigned);
+        snapAssigned.docs.forEach((item) => {
+          itemsMap.set(item.id, { id: item.id, ...item.data() });
+        });
+      } catch (errAssigned) {
+        // Ignora silenciosamente se o índice/regra de array não estiver configurado
+      }
+
+      state.interessados = Array.from(itemsMap.values());
+      return;
+    } catch (err) {
+      console.warn("Erro ao carregar interessados do membro:", err);
+      state.interessados = [];
+      return;
+    }
   }
 
   state.interessados = [];
+}
+
+function buildAgendaFromInteressados() {
+  const daysKeys = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"];
+  const defaultTimes = ["19:30", "15:00", "20:00", "14:00", "18:30"];
+  const list = [];
+  const students = getVisibleInteressados();
+
+  students.forEach((student, index) => {
+    // Skip if explicitly marked paused or removed from agenda
+    if (student.diaSemana === "pausado" || student.agendaDiaSemana === "pausado") {
+      return;
+    }
+
+    // Regra estrita de hierarquia: membro só visualiza seus próprios estudos
+    if (isMembro()) {
+      const isMyStudent =
+        student.criadoPorId === state.user.uid ||
+        student.agendaInstrutorId === state.user.uid ||
+        (Array.isArray(student.instrutorIds) && student.instrutorIds.includes(state.user.uid)) ||
+        (Array.isArray(student.instrutores) &&
+          student.instrutores.some(
+            (i) =>
+              i.id === state.user.uid ||
+              (i.nome && state.user.nome && normalizeText(i.nome) === normalizeText(state.user.nome))
+          ));
+      if (!isMyStudent) {
+        return;
+      }
+    }
+
+    const res = resolveInteressadoFullData(student, state);
+
+    // 1. Day of week
+    let diaSemana = student.diaSemana || student.agendaDiaSemana || "";
+    if (!diaSemana) {
+      const obs = normalizeText(student.observacoes || "");
+      if (obs.includes("domingo")) diaSemana = "domingo";
+      else if (obs.includes("segunda")) diaSemana = "segunda";
+      else if (obs.includes("terca") || obs.includes("terça")) diaSemana = "terca";
+      else if (obs.includes("quarta")) diaSemana = "quarta";
+      else if (obs.includes("quinta")) diaSemana = "quinta";
+      else if (obs.includes("sexta")) diaSemana = "sexta";
+      else if (obs.includes("sabado") || obs.includes("sábado")) diaSemana = "sabado";
+      else {
+        diaSemana = daysKeys[index % 6];
+      }
+    }
+
+    // 2. Horario
+    let horario = student.horario || student.agendaHorario || "";
+    if (!horario) {
+      const obs = normalizeText(student.observacoes || "");
+      const timeMatch = obs.match(/(\d{1,2})[h:](\d{2})?/i);
+      if (timeMatch) {
+        const hour = timeMatch[1].padStart(2, "0");
+        const min = timeMatch[2] ? timeMatch[2] : "00";
+        horario = `${hour}:${min}`;
+      } else {
+        horario = defaultTimes[index % defaultTimes.length];
+      }
+    }
+
+    // 3. Status
+    let status = student.agendaStatus || student.statusAgendamento || "";
+    if (!status) {
+      status = student.status === "Concluído" ? "Realizado" : "Confirmado";
+    }
+
+    // 4. Instructor
+    let instId = student.agendaInstrutorId || "";
+    let instNome = student.agendaInstrutorNome || "";
+    if (!instNome) {
+      if (Array.isArray(student.instrutores) && student.instrutores.length && student.instrutores[0]?.nome) {
+        instId = student.instrutores[0].id || "";
+        instNome = student.instrutores[0].nome;
+      } else if (Array.isArray(res.instrutorNomes) && res.instrutorNomes.length) {
+        instNome = res.instrutorNomes[0];
+        instId = (student.instrutorIds && student.instrutorIds[0]) || "";
+      } else {
+        instNome = student.criadoPorNome || "Instrutor";
+        instId = student.criadoPorId || "";
+      }
+    }
+
+    list.push({
+      id: student.id,
+      interessadoId: student.id,
+      interessadoNome: res.nome,
+      interessadoTelefone: res.telefone !== "Sem telefone" ? res.telefone : "",
+      endereco: res.endereco !== "Sem endereço cadastrado" ? res.endereco : "",
+      igrejaId: res.igrejaId || student.igrejaId || "",
+      igrejaNome: res.igrejaNome || student.igrejaNome || "Igreja Local",
+      distrito: res.distrito || DISTRITO_FIXO,
+      instrutorId: instId,
+      instrutorNome: instNome,
+      diaSemana: normalizeText(diaSemana),
+      horario: horario,
+      dataEstudo: student.dataEstudo || student.agendaData || "",
+      tipoEncontro: student.tipoEncontro || student.agendaFormato || "Presencial (Casa do Interessado)",
+      serieId: res.serieId || student.serieId || "",
+      serieNome: res.serieNome || student.serieNome || "Série Bíblica",
+      licaoAtual: Number(res.estudoAtual || 1),
+      status: status,
+      observacoes: student.agendaObservacoes || student.observacoesRaw || "",
+      criadoPorId: student.criadoPorId || "",
+      criadoPorNome: student.criadoPorNome || ""
+    });
+  });
+
+  return list;
+}
+
+function loadAgenda() {
+  try {
+    state.agenda = buildAgendaFromInteressados();
+  } catch (error) {
+    state.agenda = [];
+  }
 }
 
 async function refreshData() {
@@ -989,6 +1196,8 @@ async function refreshData() {
       loadUsuarios(),
       loadInteressados()
     ]);
+
+    loadAgenda();
 
     renderAll();
   } catch (error) {
@@ -3165,6 +3374,1137 @@ async function handleUserFormSubmit(event) {
   }
 }
 
+/* =========================================================
+   CONTROLE DE ESTUDOS (AGENDA SEMANAL & DIÁRIA)
+========================================================= */
+
+function getDayDisplayName(dayKey = "") {
+  const map = {
+    domingo: "Domingo",
+    segunda: "Segunda-feira",
+    terca: "Terça-feira",
+    quarta: "Quarta-feira",
+    quinta: "Quinta-feira",
+    sexta: "Sexta-feira",
+    sabado: "Sábado"
+  };
+  return map[dayKey.toLowerCase()] || dayKey;
+}
+
+function getWeekDays(offset = 0) {
+  const today = new Date();
+  const currentDayOfWeek = today.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - currentDayOfWeek + (offset * 7));
+  sunday.setHours(0, 0, 0, 0);
+
+  const daysKeys = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const daysNames = [
+    "Domingo",
+    "Segunda-feira",
+    "Terça-feira",
+    "Quarta-feira",
+    "Quinta-feira",
+    "Sexta-feira",
+    "Sábado"
+  ];
+  const shortNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+
+    const isToday =
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+
+    const dateStr = d.toISOString().slice(0, 10);
+    const dateFormatted = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const fullDateFormatted = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+
+    days.push({
+      index: i,
+      key: daysKeys[i],
+      name: daysNames[i],
+      shortName: shortNames[i],
+      date: d,
+      dateStr,
+      dateFormatted,
+      fullDateFormatted,
+      isToday
+    });
+  }
+  return days;
+}
+
+function getWeekRangeLabel(days) {
+  if (!days || days.length < 7) return "";
+  const start = days[0];
+  const end = days[6];
+  const year = end.date.getFullYear();
+  return `${start.dateFormatted} a ${end.dateFormatted} (${year})`;
+}
+
+function getFilteredAgenda() {
+  let list = [...(state.agenda || [])];
+  const query = normalizeText(state.agendaSearchQuery);
+  const selIgreja = state.agendaIgrejaFilter;
+  const selInstrutor = state.agendaInstrutorFilter;
+  const selDia = state.agendaDiaFilter;
+  const selStatus = state.agendaStatusFilter;
+
+  if (selIgreja && selIgreja !== "Todas") {
+    list = list.filter((item) => item.igrejaNome === selIgreja || item.igrejaId === selIgreja);
+  }
+
+  if (selInstrutor && selInstrutor !== "Todos") {
+    list = list.filter((item) => item.instrutorNome === selInstrutor || item.instrutorId === selInstrutor);
+  }
+
+  if (selDia && selDia !== "Todos") {
+    list = list.filter((item) => normalizeText(item.diaSemana) === normalizeText(selDia));
+  }
+
+  if (selStatus && selStatus !== "Todos") {
+    list = list.filter((item) => item.status === selStatus);
+  }
+
+  if (query) {
+    list = list.filter((item) => {
+      return (
+        normalizeText(item.interessadoNome || "").includes(query) ||
+        normalizeText(item.instrutorNome || "").includes(query) ||
+        normalizeText(item.igrejaNome || "").includes(query) ||
+        normalizeText(item.serieNome || "").includes(query) ||
+        normalizeText(item.endereco || "").includes(query) ||
+        normalizeText(item.horario || "").includes(query) ||
+        normalizeText(item.observacoes || "").includes(query) ||
+        normalizeText(item.interessadoTelefone || "").includes(query)
+      );
+    });
+  }
+
+  return list;
+}
+
+function sortStudiesByTime(studies = []) {
+  return [...studies].sort((a, b) => {
+    const timeA = (a.horario || "99:99").replace(":", "");
+    const timeB = (b.horario || "99:99").replace(":", "");
+    return timeA.localeCompare(timeB);
+  });
+}
+
+function renderAgendaSection() {
+  const container = document.getElementById("agendaSection");
+  if (!container) return;
+
+  // 1. Role Badge
+  if (agendaRoleBadge) {
+    if (isAdmin()) {
+      agendaRoleBadge.textContent = "Pastor / Administrador (Visão Geral - Todas as Igrejas)";
+    } else if (isDistrital()) {
+      agendaRoleBadge.textContent = "Líder Distrital (Visão de Todas as Igrejas)";
+    } else if (isLocal()) {
+      agendaRoleBadge.textContent = `Líder Local (${getCurrentUserLocalName() || "Sua Igreja"})`;
+    } else if (isMembro()) {
+      agendaRoleBadge.textContent = `Membro (${state.user?.nome || "Meus Estudos Atribuídos"})`;
+    }
+  }
+
+  // 2. Week calculation
+  const weekDays = getWeekDays(state.agendaWeekOffset || 0);
+
+  if (agendaWeekLabel) {
+    agendaWeekLabel.textContent = `Semana: ${getWeekRangeLabel(weekDays)}`;
+  }
+
+  if (agendaCurrentWeekBtn) {
+    agendaCurrentWeekBtn.classList.toggle("active", state.agendaWeekOffset === 0);
+  }
+
+  // 3. View Switcher button states
+  [btnViewSemana, btnViewDia, btnViewLista].forEach((btn) => {
+    if (btn) {
+      btn.classList.toggle("active", btn.dataset.view === state.agendaViewMode);
+    }
+  });
+
+  // 4. Populate Church Filter
+  const igrejaFilterGroup = document.getElementById("agendaIgrejaFilterGroup");
+  if (agendaIgrejaFilter) {
+    if (isMembro()) {
+      if (igrejaFilterGroup) igrejaFilterGroup.style.display = "none";
+    } else if (isLocal()) {
+      if (igrejaFilterGroup) igrejaFilterGroup.style.display = "";
+      const localName = getCurrentUserLocalName() || "Igreja Local";
+      agendaIgrejaFilter.innerHTML = `<option value="${escapeHtml(localName)}">${escapeHtml(localName)}</option>`;
+      agendaIgrejaFilter.disabled = true;
+      state.agendaIgrejaFilter = localName;
+    } else {
+      if (igrejaFilterGroup) igrejaFilterGroup.style.display = "";
+      agendaIgrejaFilter.disabled = false;
+      const churches = Array.from(
+        new Set([
+          ...state.locais.map((l) => l.nome),
+          ...(state.agenda || []).map((a) => a.igrejaNome)
+        ].filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+      const currentVal = state.agendaIgrejaFilter || "Todas";
+      agendaIgrejaFilter.innerHTML =
+        `<option value="Todas" ${currentVal === "Todas" ? "selected" : ""}>Todas as Igrejas (${churches.length})</option>` +
+        churches
+          .map((c) => {
+            const count = (state.agenda || []).filter((item) => item.igrejaNome === c).length;
+            return `<option value="${escapeHtml(c)}" ${c === currentVal ? "selected" : ""}>${escapeHtml(c)} (${count})</option>`;
+          })
+          .join("");
+    }
+  }
+
+  // 5. Populate Instructor Filter
+  const instrutorFilterGroup = document.getElementById("agendaInstrutorFilterGroup");
+  if (agendaInstrutorFilter) {
+    if (isMembro()) {
+      if (instrutorFilterGroup) instrutorFilterGroup.style.display = "none";
+    } else {
+      if (instrutorFilterGroup) instrutorFilterGroup.style.display = "";
+      const instructors = Array.from(
+        new Set([
+          ...state.usuarios.map((u) => u.nome),
+          ...(state.agenda || []).map((a) => a.instrutorNome)
+        ].filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+      const currentVal = state.agendaInstrutorFilter || "Todos";
+      agendaInstrutorFilter.innerHTML =
+        `<option value="Todos" ${currentVal === "Todos" ? "selected" : ""}>Todos os Instrutores (${instructors.length})</option>` +
+        instructors
+          .map((inst) => {
+            const count = (state.agenda || []).filter((item) => item.instrutorNome === inst).length;
+            return `<option value="${escapeHtml(inst)}" ${inst === currentVal ? "selected" : ""}>${escapeHtml(inst)} (${count})</option>`;
+          })
+          .join("");
+    }
+  }
+
+  // 6. Render KPI Metrics
+  renderAgendaMetrics(weekDays);
+
+  // 7. Render Active View Mode
+  if (state.agendaViewMode === "dia") {
+    renderAgendaDailyView(weekDays);
+  } else if (state.agendaViewMode === "lista") {
+    renderAgendaListView(weekDays);
+  } else {
+    renderAgendaWeekGrid(weekDays);
+  }
+}
+
+function renderAgendaMetrics(weekDays = []) {
+  if (!agendaMetricsGrid) return;
+
+  const filtered = getFilteredAgenda();
+  const totalSemana = filtered.length;
+
+  const todayKey = getDefaultDayKey();
+  const todayStudies = filtered.filter((s) => normalizeText(s.diaSemana) === todayKey);
+
+  const distinctInstructors = new Set(filtered.map((s) => s.instrutorNome).filter(Boolean)).size;
+  const realizados = filtered.filter((s) => s.status === "Realizado").length;
+  const taxaRealizados = totalSemana > 0 ? Math.round((realizados / totalSemana) * 100) : 0;
+
+  agendaMetricsGrid.innerHTML = `
+    <div class="agenda-metric-card highlight">
+      <div class="agenda-metric-icon green">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      </div>
+      <div class="agenda-metric-info">
+        <span class="agenda-metric-label">ESTUDOS NA SEMANA</span>
+        <span class="agenda-metric-value">${totalSemana}</span>
+        <span class="agenda-metric-subtext">Agendados para este período</span>
+      </div>
+    </div>
+
+    <div class="agenda-metric-card highlight">
+      <div class="agenda-metric-icon blue">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+      <div class="agenda-metric-info">
+        <span class="agenda-metric-label">ESTUDOS HOJE</span>
+        <span class="agenda-metric-value">${todayStudies.length}</span>
+        <span class="agenda-metric-subtext">${getDayDisplayName(todayKey)}</span>
+      </div>
+    </div>
+
+    <div class="agenda-metric-card">
+      <div class="agenda-metric-icon purple">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      </div>
+      <div class="agenda-metric-info">
+        <span class="agenda-metric-label">INSTRUTORES ESCALADOS</span>
+        <span class="agenda-metric-value">${distinctInstructors}</span>
+        <span class="agenda-metric-subtext">Obreiros em ação na semana</span>
+      </div>
+    </div>
+
+    <div class="agenda-metric-card">
+      <div class="agenda-metric-icon orange">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <div class="agenda-metric-info">
+        <span class="agenda-metric-label">REALIZADOS / CUMPRIDOS</span>
+        <span class="agenda-metric-value">${realizados}</span>
+        <span class="agenda-metric-subtext">${taxaRealizados}% de aproveitamento</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderAgendaWeekGrid(weekDays = []) {
+  if (!agendaContentArea) return;
+
+  const filtered = getFilteredAgenda();
+
+  const colsHtml = weekDays
+    .map((day) => {
+      // Find studies for this day of week
+      const studies = sortStudiesByTime(
+        filtered.filter((s) => normalizeText(s.diaSemana) === day.key)
+      );
+
+      const cardsHtml = studies.length
+        ? studies
+            .map((study) => {
+              const isRealizado = study.status === "Realizado";
+              const isConfirmado = study.status === "Confirmado";
+              const isCancelado = (study.status || "").toLowerCase().includes("cancelado");
+
+              let statusClass = "agendado";
+              if (isRealizado) statusClass = "realizado";
+              else if (isConfirmado) statusClass = "confirmado";
+              else if (isCancelado) statusClass = "cancelado";
+
+              return `
+                <article class="agenda-study-card status-${statusClass}" data-study-id="${study.id}">
+                  <div class="agenda-card-top">
+                    <span class="agenda-time-chip">
+                      🕒 ${escapeHtml(study.horario || "A combinar")}
+                    </span>
+                    <span class="agenda-status-pill ${statusClass}">
+                      ${escapeHtml(study.status || "Agendado")}
+                    </span>
+                  </div>
+
+                  <h4 class="agenda-student-name">${escapeHtml(study.interessadoNome || "Sem nome")}</h4>
+
+                  <div class="agenda-meta-row">
+                    <div class="agenda-meta-item" title="Instrutor responsável">
+                      <span>👨‍🏫</span>
+                      <strong>${escapeHtml(study.instrutorNome || "Instrutor")}</strong>
+                    </div>
+
+                    <div class="agenda-meta-item" title="Igreja / Congregação">
+                      <span>⛪</span>
+                      <span>${escapeHtml(study.igrejaNome || "Sem igreja")}</span>
+                    </div>
+
+                    ${
+                      study.serieNome
+                        ? `
+                        <div class="agenda-meta-item" title="Série e lição">
+                          <span>📖</span>
+                          <span>${escapeHtml(study.serieNome)}${study.licaoAtual ? ` — Lição ${study.licaoAtual}` : ""}</span>
+                        </div>
+                      `
+                        : ""
+                    }
+
+                    ${
+                      study.endereco
+                        ? `
+                        <div class="agenda-meta-item" title="${escapeHtml(study.endereco)}">
+                          <span>📍</span>
+                          <span>${escapeHtml(study.endereco)}</span>
+                        </div>
+                      `
+                        : ""
+                    }
+                  </div>
+
+                  <div class="agenda-card-actions">
+                    <button
+                      type="button"
+                      class="agenda-mini-btn btn-complete-mini"
+                      data-complete-study="${study.id}"
+                      title="${isRealizado ? "Desmarcar realizado" : "Concluir estudo e avançar lição"}"
+                    >
+                      ${isRealizado ? "↩" : "✓"}
+                    </button>
+
+                    ${
+                      study.interessadoTelefone
+                        ? `
+                        <button
+                          type="button"
+                          class="agenda-mini-btn btn-wa-mini"
+                          data-wa-study="${study.id}"
+                          title="Enviar lembrete de estudo pelo WhatsApp"
+                        >
+                          💬
+                        </button>
+                      `
+                        : ""
+                    }
+
+                    <button
+                      type="button"
+                      class="agenda-mini-btn"
+                      data-edit-study="${study.id}"
+                      title="Editar agendamento"
+                    >
+                      ✏️
+                    </button>
+
+                    <button
+                      type="button"
+                      class="agenda-mini-btn btn-del-mini"
+                      data-delete-study="${study.id}"
+                      title="Excluir agendamento"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </article>
+              `;
+            })
+            .join("")
+        : `
+          <div class="agenda-empty-day">
+            <span>Nenhum estudo agendado</span>
+            <button type="button" class="agenda-empty-day-btn" data-add-day-study="${day.key}">
+              + Agendar neste dia
+            </button>
+          </div>
+        `;
+
+      return `
+        <div class="agenda-day-col ${day.isToday ? "is-today" : ""}">
+          <div class="agenda-day-header">
+            <div class="agenda-day-top-row">
+              <span class="agenda-day-title">${day.name}</span>
+              ${day.isToday ? `<span class="agenda-today-pill">HOJE</span>` : ""}
+            </div>
+            <div class="agenda-day-sub-row">
+              <span class="agenda-day-date">${day.dateFormatted}</span>
+              <span class="agenda-day-count-badge">${studies.length} estudo(s)</span>
+            </div>
+          </div>
+
+          <div class="agenda-day-body">
+            ${cardsHtml}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  agendaContentArea.innerHTML = `
+    <div class="agenda-week-grid">
+      ${colsHtml}
+    </div>
+  `;
+}
+
+function renderAgendaDailyView(weekDays = []) {
+  if (!agendaContentArea) return;
+
+  const filtered = getFilteredAgenda();
+  const selectedKey = state.selectedAgendaDayKey || getDefaultDayKey();
+
+  // Day tabs
+  const tabsHtml = weekDays
+    .map((day) => {
+      const dayStudies = filtered.filter((s) => normalizeText(s.diaSemana) === day.key);
+      const isActive = day.key === selectedKey;
+      return `
+        <button
+          type="button"
+          class="agenda-day-tab-btn ${isActive ? "active" : ""}"
+          data-select-day="${day.key}"
+        >
+          <span class="agenda-day-tab-name">${day.shortName}${day.isToday ? " (Hoje)" : ""}</span>
+          <span class="agenda-day-tab-date">${day.dateFormatted}</span>
+          <span class="agenda-day-tab-badge">${dayStudies.length}</span>
+        </button>
+      `;
+    })
+    .join("");
+
+  const selectedDayObj = weekDays.find((d) => d.key === selectedKey) || weekDays[0];
+  const dayStudies = sortStudiesByTime(
+    filtered.filter((s) => normalizeText(s.diaSemana) === selectedKey)
+  );
+
+  const timelineCardsHtml = dayStudies.length
+    ? dayStudies
+        .map((study) => {
+          const isRealizado = study.status === "Realizado";
+          const isConfirmado = study.status === "Confirmado";
+          const isCancelado = (study.status || "").toLowerCase().includes("cancelado");
+
+          let statusClass = "agendado";
+          if (isRealizado) statusClass = "realizado";
+          else if (isConfirmado) statusClass = "confirmado";
+          else if (isCancelado) statusClass = "cancelado";
+
+          return `
+            <article class="agenda-timeline-card ${isRealizado ? "is-done" : isConfirmado ? "is-confirmed" : ""}">
+              <div class="agenda-timeline-time-col">
+                <span class="agenda-timeline-time-big">${escapeHtml(study.horario || "19:30")}</span>
+                <span class="agenda-timeline-duration">Estudo Bíblico</span>
+              </div>
+
+              <div class="agenda-timeline-content">
+                <div class="agenda-timeline-header">
+                  <div>
+                    <h3 class="agenda-timeline-title">${escapeHtml(study.interessadoNome)}</h3>
+                    <span class="tiny-muted">${escapeHtml(study.tipoEncontro || "Presencial")}</span>
+                  </div>
+
+                  <div class="agenda-timeline-pills">
+                    <span class="pill status-${statusClass}">${escapeHtml(study.status || "Agendado")}</span>
+                    <span class="pill">${escapeHtml(study.igrejaNome || "Igreja Local")}</span>
+                  </div>
+                </div>
+
+                <div class="agenda-timeline-grid">
+                  <div>
+                    <span class="tiny-muted">Instrutor:</span><br>
+                    <strong>👨‍🏫 ${escapeHtml(study.instrutorNome || "Instrutor")}</strong>
+                  </div>
+
+                  <div>
+                    <span class="tiny-muted">Série & Lição:</span><br>
+                    <strong>📖 ${escapeHtml(study.serieNome || "Série")}${study.licaoAtual ? ` (Lição ${study.licaoAtual})` : ""}</strong>
+                  </div>
+
+                  <div>
+                    <span class="tiny-muted">Contato / WhatsApp:</span><br>
+                    <strong>📱 ${escapeHtml(study.interessadoTelefone || "Sem telefone")}</strong>
+                  </div>
+
+                  ${
+                    study.endereco
+                      ? `
+                    <div style="grid-column: 1 / -1;">
+                      <span class="tiny-muted">Local / Endereço:</span><br>
+                      <span>📍 ${escapeHtml(study.endereco)}</span>
+                    </div>
+                  `
+                      : ""
+                  }
+                </div>
+
+                ${
+                  study.observacoes
+                    ? `
+                  <div class="agenda-timeline-notes">
+                    <strong>Observações pastorais:</strong> ${escapeHtml(study.observacoes)}
+                  </div>
+                `
+                    : ""
+                }
+
+                <div class="agenda-timeline-actions">
+                  ${
+                    study.interessadoTelefone
+                      ? `
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      data-wa-study="${study.id}"
+                      style="color:#0d8745;border-color:rgba(16,126,77,.3);"
+                    >
+                      💬 WhatsApp
+                    </button>
+                  `
+                      : ""
+                  }
+
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    data-complete-study="${study.id}"
+                    style="${isRealizado ? "" : "background:#e6f7ef;color:#0b683e;"}"
+                  >
+                    ${isRealizado ? "↩ Desmarcar Realizado" : "✓ Concluir Estudo"}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    data-edit-study="${study.id}"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    data-delete-study="${study.id}"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : `
+      <div class="card" style="text-align:center;padding:48px 20px;">
+        <div style="font-size:36px;margin-bottom:12px;">📅</div>
+        <h3 style="margin:0 0 6px;">Nenhum estudo agendado para ${selectedDayObj?.name || "este dia"}</h3>
+        <p style="color:var(--text-soft);max-width:480px;margin:0 auto 16px;">
+          Não há encontros bíblicos marcados nesta data com os filtros atuais.
+        </p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-add-day-study="${selectedKey}"
+        >
+          + Agendar Estudo para ${selectedDayObj?.name || "este dia"}
+        </button>
+      </div>
+    `;
+
+  agendaContentArea.innerHTML = `
+    <div class="agenda-daily-view">
+      <div class="agenda-day-tabs">
+        ${tabsHtml}
+      </div>
+
+      <div class="agenda-timeline">
+        ${timelineCardsHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderAgendaListView(weekDays = []) {
+  if (!agendaContentArea) return;
+
+  const filtered = getFilteredAgenda();
+
+  if (!filtered.length) {
+    agendaContentArea.innerHTML = `
+      <div class="card" style="text-align:center;padding:40px;">
+        <p style="color:var(--text-soft);margin-bottom:14px;">Nenhum estudo encontrado na agenda para os filtros selecionados.</p>
+        <button type="button" class="btn btn-primary" id="openAgendaModalBtnFromEmpty">
+          + Agendar Novo Estudo
+        </button>
+      </div>
+    `;
+    const emptyBtn = document.getElementById("openAgendaModalBtnFromEmpty");
+    emptyBtn?.addEventListener("click", () => openAgendaModal());
+    return;
+  }
+
+  const rowsHtml = filtered
+    .map((study) => {
+      const isRealizado = study.status === "Realizado";
+      let statusClass = "agendado";
+      if (isRealizado) statusClass = "realizado";
+      else if (study.status === "Confirmado") statusClass = "confirmado";
+      else if ((study.status || "").toLowerCase().includes("cancelado")) statusClass = "cancelado";
+
+      return `
+        <tr>
+          <td>
+            <strong>${getDayDisplayName(study.diaSemana)}</strong><br>
+            <span class="tiny-muted">🕒 ${escapeHtml(study.horario || "19:30")}</span>
+          </td>
+          <td>
+            <strong>${escapeHtml(study.interessadoNome)}</strong><br>
+            <span class="tiny-muted">${escapeHtml(study.interessadoTelefone || "-")}</span>
+          </td>
+          <td>
+            <div style="font-weight:600;color:var(--text);">${escapeHtml(study.instrutorNome || "Instrutor")}</div>
+            <span class="tiny-muted">${escapeHtml(study.igrejaNome || "-")}</span>
+          </td>
+          <td>
+            <strong>${escapeHtml(study.serieNome || "-")}</strong><br>
+            <span class="tiny-muted">Lição ${study.licaoAtual || 1}</span>
+          </td>
+          <td>
+            <span>${escapeHtml(study.tipoEncontro || "Presencial")}</span><br>
+            <span class="tiny-muted">${escapeHtml(study.endereco || "-")}</span>
+          </td>
+          <td>
+            <span class="pill status-${statusClass}">${escapeHtml(study.status || "Agendado")}</span>
+          </td>
+          <td>
+            <div class="action-row">
+              <button class="btn btn-secondary btn-sm" data-complete-study="${study.id}">
+                ${isRealizado ? "↩" : "✓ Realizado"}
+              </button>
+              ${
+                study.interessadoTelefone
+                  ? `<button class="btn btn-secondary btn-sm" data-wa-study="${study.id}" style="color:#0d8745;">💬</button>`
+                  : ""
+              }
+              <button class="btn btn-secondary btn-sm" data-edit-study="${study.id}">Editar</button>
+              <button class="btn btn-danger btn-sm" data-delete-study="${study.id}">Excluir</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  agendaContentArea.innerHTML = `
+    <div class="card">
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Dia / Horário</th>
+              <th>Interessado</th>
+              <th>Instrutor / Igreja</th>
+              <th>Série / Lição</th>
+              <th>Formato / Local</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================================================
+   MODAL DE AGENDAMENTO DE ESTUDOS
+========================================================= */
+
+function openAgendaModal(studyToEdit = null, defaultDayKey = null) {
+  if (!agendaModalBackdrop) return;
+
+  resetAgendaForm();
+
+  // Populate Interessados Select
+  if (agendaInteressadoSelect) {
+    const visibleStudents = getVisibleInteressados();
+    agendaInteressadoSelect.innerHTML =
+      `<option value="">Selecionar da lista de interessados (ou digitar manualmente abaixo)</option>` +
+      visibleStudents
+        .map((s) => {
+          const res = resolveInteressadoFullData(s, state);
+          return `<option value="${s.id}">${escapeHtml(res.nome)} • ${escapeHtml(res.igrejaNome)} (${escapeHtml(res.instrutoresString)})</option>`;
+        })
+        .join("");
+  }
+
+  // Populate Churches
+  if (agendaIgreja) {
+    if (isLocal() || isMembro()) {
+      renderLocalOptions(agendaIgreja, { onlyCurrent: true });
+      agendaIgreja.value = getCurrentUserLocalId();
+      agendaIgreja.disabled = true;
+    } else {
+      renderLocalOptions(agendaIgreja);
+      agendaIgreja.disabled = false;
+    }
+  }
+
+  // Populate Instructors
+  if (agendaInstrutor) {
+    const list = getAllInstructorsData();
+    if (isMembro()) {
+      agendaInstrutor.innerHTML = `<option value="${state.user?.uid}">${escapeHtml(state.user?.nome || "Você")}</option>`;
+      agendaInstrutor.value = state.user?.uid;
+      agendaInstrutor.disabled = true;
+    } else {
+      agendaInstrutor.disabled = false;
+      agendaInstrutor.innerHTML =
+        `<option value="">Selecionar instrutor responsável</option>` +
+        list
+          .map((inst) => `<option value="${inst.id}">${escapeHtml(inst.nome)} (${escapeHtml(formatRole(inst.perfil))})</option>`)
+          .join("");
+    }
+  }
+
+  // Populate Series
+  if (agendaSerie) {
+    renderLocalOptions(agendaSerie); // fallback
+    agendaSerie.innerHTML =
+      `<option value="">Selecionar série</option>` +
+      sortByName(state.series)
+        .map((serie) => `<option value="${serie.id}">${escapeHtml(serie.nome)}</option>`)
+        .join("");
+  }
+
+  if (studyToEdit) {
+    if (agendaModalTitle) agendaModalTitle.textContent = "Editar Estudo Bíblico";
+    agendaId.value = studyToEdit.id || "";
+    agendaInteressadoNome.value = studyToEdit.interessadoNome || "";
+    agendaInteressadoTelefone.value = studyToEdit.interessadoTelefone || "";
+    agendaEndereco.value = studyToEdit.endereco || "";
+    if (studyToEdit.igrejaId && !agendaIgreja.disabled) {
+      agendaIgreja.value = studyToEdit.igrejaId;
+    }
+    if (studyToEdit.instrutorId && !agendaInstrutor.disabled) {
+      agendaInstrutor.value = studyToEdit.instrutorId;
+    }
+    agendaDiaSemana.value = studyToEdit.diaSemana || "segunda";
+    agendaHorario.value = studyToEdit.horario || "19:30";
+    agendaData.value = studyToEdit.dataEstudo || "";
+    agendaFormato.value = studyToEdit.tipoEncontro || "Presencial (Casa do Interessado)";
+    agendaSerie.value = studyToEdit.serieId || "";
+    agendaLicao.value = studyToEdit.licaoAtual || 1;
+    agendaStatus.value = studyToEdit.status || "Confirmado";
+    agendaObservacoes.value = studyToEdit.observacoes || "";
+    if (studyToEdit.interessadoId) {
+      agendaInteressadoSelect.value = studyToEdit.interessadoId;
+    }
+  } else {
+    if (agendaModalTitle) agendaModalTitle.textContent = "Agendar Estudo Bíblico";
+    if (defaultDayKey) {
+      agendaDiaSemana.value = defaultDayKey;
+    }
+  }
+
+  agendaModalBackdrop.classList.remove("hidden");
+}
+
+function closeAgendaModal() {
+  agendaModalBackdrop?.classList.add("hidden");
+}
+
+function resetAgendaForm() {
+  agendaForm?.reset();
+  if (agendaId) agendaId.value = "";
+  if (agendaDiaSemana) agendaDiaSemana.value = "segunda";
+  if (agendaHorario) agendaHorario.value = "19:30";
+  if (agendaStatus) agendaStatus.value = "Confirmado";
+  if (agendaLicao) agendaLicao.value = 1;
+}
+
+async function handleAgendaSubmit(event) {
+  event.preventDefault();
+  clearMessage();
+
+  try {
+    const recordId = agendaId?.value;
+    const nomeVal = agendaInteressadoNome?.value.trim();
+    const telVal = agendaInteressadoTelefone?.value.trim();
+    const endVal = agendaEndereco?.value.trim();
+    const igrejaIdVal = agendaIgreja?.value;
+    const instrutorIdVal = agendaInstrutor?.value;
+    const diaVal = agendaDiaSemana?.value;
+    const horaVal = agendaHorario?.value;
+    const dataVal = agendaData?.value;
+    const formatoVal = agendaFormato?.value;
+    const serieIdVal = agendaSerie?.value;
+    const licaoVal = Number(agendaLicao?.value || 1);
+    const statusVal = agendaStatus?.value || "Confirmado";
+    const obsVal = agendaObservacoes?.value.trim();
+    const selectedInteressadoId = agendaInteressadoSelect?.value || "";
+
+    if (!nomeVal) throw new Error("Informe o nome do interessado.");
+    if (!diaVal) throw new Error("Selecione o dia da semana.");
+    if (!horaVal) throw new Error("Informe o horário do estudo.");
+
+    const selectedIgreja = getLocalById(igrejaIdVal);
+    const selectedInstrutor = getUserById(instrutorIdVal);
+    const selectedSerie = getSerieById(serieIdVal);
+
+    showLoading();
+
+    const targetId = recordId || selectedInteressadoId;
+
+    if (targetId) {
+      const existing = state.interessados.find((i) => i.id === targetId);
+      const updateData = {
+        diaSemana: diaVal,
+        agendaDiaSemana: diaVal,
+        horario: horaVal,
+        agendaHorario: horaVal,
+        dataEstudo: dataVal || "",
+        tipoEncontro: formatoVal || "Presencial (Casa do Interessado)",
+        statusAgendamento: statusVal,
+        agendaStatus: statusVal,
+        agendaObservacoes: obsVal,
+        atualizadoEm: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (selectedInstrutor) {
+        updateData.agendaInstrutorId = selectedInstrutor.id;
+        updateData.agendaInstrutorNome = selectedInstrutor.nome;
+      }
+      if (licaoVal > 0) {
+        updateData.estudoAtual = licaoVal;
+      }
+
+      await updateDoc(doc(db, "interessados", targetId), updateData);
+      showMessage("Estudo atualizado com sucesso.", "success");
+    } else {
+      // Create new interested person with study scheduled
+      const totalLicoes = selectedSerie?.totalEstudos || 18;
+      const progress = calcProgress(licaoVal, totalLicoes);
+
+      const newStudentPayload = {
+        nome: nomeVal,
+        telefone: telVal,
+        endereco: endVal,
+        igrejaId: selectedIgreja?.id || igrejaIdVal || getCurrentUserLocalId(),
+        igrejaNome: selectedIgreja?.nome || getCurrentUserLocalName() || "Igreja Local",
+        igrejaTipo: selectedIgreja?.tipo || "igreja",
+        distrito: DISTRITO_FIXO,
+        instrutorIds: selectedInstrutor ? [selectedInstrutor.id] : [state.user?.uid],
+        instrutorNomes: selectedInstrutor ? [selectedInstrutor.nome] : [state.user?.nome || "Instrutor"],
+        instrutores: [
+          {
+            id: selectedInstrutor?.id || state.user?.uid,
+            nome: selectedInstrutor?.nome || state.user?.nome || "Instrutor"
+          }
+        ],
+        criadoPorId: state.user?.uid,
+        criadoPorNome: state.user?.nome,
+        criadoPorPerfil: state.user?.perfil || "membro",
+        serieId: selectedSerie?.id || serieIdVal || "",
+        serieNome: selectedSerie?.nome || (serieIdVal ? "Série Bíblica" : "Série Bíblica"),
+        estudoAtual: progress.capped,
+        totalEstudos: totalLicoes,
+        porcentagem: progress.porcentagem,
+        faltantes: progress.faltantes,
+        status: "Ativo",
+        interesse: "Médio",
+        diaSemana: diaVal,
+        agendaDiaSemana: diaVal,
+        horario: horaVal,
+        agendaHorario: horaVal,
+        dataEstudo: dataVal || "",
+        tipoEncontro: formatoVal,
+        statusAgendamento: statusVal,
+        agendaStatus: statusVal,
+        agendaInstrutorId: selectedInstrutor?.id || instrutorIdVal || state.user?.uid,
+        agendaInstrutorNome: selectedInstrutor?.nome || state.user?.nome || "Instrutor",
+        observacoes: obsVal,
+        agendaObservacoes: obsVal,
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, "interessados"), newStudentPayload);
+      showMessage("Estudo agendado com sucesso na escala semanal.", "success");
+    }
+
+    closeAgendaModal();
+    resetAgendaForm();
+    await refreshData();
+  } catch (error) {
+    console.error("Erro ao salvar estudo na agenda:", error);
+    showMessage(error.message || "Não foi possível salvar o estudo.", "error");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteAgendaStudy(id) {
+  const item = (state.agenda || []).find((s) => s.id === id);
+  if (!item) return;
+
+  const confirmed = window.confirm(
+    `Remover o estudo de "${item.interessadoNome}" da escala semanal (${getDayDisplayName(item.diaSemana)} às ${item.horario})?`
+  );
+  if (!confirmed) return;
+
+  try {
+    showLoading();
+    const targetId = item.interessadoId || item.id;
+    await updateDoc(doc(db, "interessados", targetId), {
+      diaSemana: "pausado",
+      agendaDiaSemana: "pausado",
+      statusAgendamento: "Pausado",
+      agendaStatus: "Pausado",
+      atualizadoEm: new Date().toISOString(),
+      updatedAt: serverTimestamp()
+    });
+    showMessage("Estudo removido da escala semanal com sucesso.", "success");
+    await refreshData();
+  } catch (error) {
+    console.error("Erro ao remover agendamento:", error);
+    showMessage("Não foi possível remover da agenda.", "error");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function editAgendaStudy(id) {
+  const item = (state.agenda || []).find((s) => s.id === id);
+  if (!item) return;
+  openAgendaModal(item);
+}
+
+async function completeStudyAppointment(studyId) {
+  const study = (state.agenda || []).find((s) => s.id === studyId);
+  if (!study) return;
+
+  const isAlreadyDone = study.status === "Realizado";
+  const newStatus = isAlreadyDone ? "Confirmado" : "Realizado";
+
+  let shouldAdvance = false;
+  const targetId = study.interessadoId || study.id;
+  const student = state.interessados.find((s) => s.id === targetId);
+
+  if (!isAlreadyDone && student) {
+    const nextLicao = Number(student.estudoAtual || study.licaoAtual || 1) + 1;
+    shouldAdvance = window.confirm(
+      `Marcar estudo de "${study.interessadoNome}" como Realizado?\n\nDeseja avançar automaticamente o progresso do aluno para a lição ${nextLicao}?`
+    );
+  }
+
+  try {
+    showLoading();
+    const updatePayload = {
+      statusAgendamento: newStatus,
+      agendaStatus: newStatus,
+      atualizadoEm: new Date().toISOString(),
+      updatedAt: serverTimestamp()
+    };
+
+    if (shouldAdvance && student) {
+      const nextStudy = Number(student.estudoAtual || 0) + 1;
+      const progress = calcProgress(nextStudy, student.totalEstudos);
+      updatePayload.estudoAtual = progress.capped;
+      updatePayload.porcentagem = progress.porcentagem;
+      updatePayload.faltantes = progress.faltantes;
+      updatePayload.ultimoContato = new Date().toISOString().slice(0, 10);
+    }
+
+    await updateDoc(doc(db, "interessados", targetId), updatePayload);
+
+    showMessage(
+      newStatus === "Realizado"
+        ? `Estudo de ${study.interessadoNome} marcado como Realizado!`
+        : `Estudo desmarcado de realizado.`,
+      "success"
+    );
+    await refreshData();
+  } catch (error) {
+    console.error("Erro ao atualizar status do estudo:", error);
+    showMessage("Não foi possível atualizar o estudo.", "error");
+  } finally {
+    hideLoading();
+  }
+}
+
+function openWhatsAppMessage(studyId) {
+  const study = (state.agenda || []).find((s) => s.id === studyId);
+  if (!study) return;
+
+  const rawPhone = String(study.interessadoTelefone || "").replace(/\D/g, "");
+  if (!rawPhone) {
+    showMessage("Este interessado não possui telefone/WhatsApp cadastrado.", "error");
+    return;
+  }
+  const cleanPhone = rawPhone.length <= 11 ? `55${rawPhone}` : rawPhone;
+  const diaNome = getDayDisplayName(study.diaSemana);
+  const msg = `Olá, ${study.interessadoNome}! Graça e paz! Aqui é o instrutor ${study.instrutorNome} da Igreja ${study.igrejaNome}. Confirmando nosso estudo bíblico (${study.serieNome || "Estudo Bíblico"}) neste(a) ${diaNome} às ${study.horario || "horário combinado"}. Podemos contar com você? Deus abençoe!`;
+  const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+}
+
+async function syncAgendaFromInteressados() {
+  if (!state.interessados.length) {
+    showMessage("Nenhum interessado cadastrado para sincronizar.", "info");
+    return;
+  }
+
+  showLoading();
+  try {
+    const daysKeys = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+    const defaultTimes = ["19:30", "15:00", "20:00", "14:00", "18:30"];
+    let updatedCount = 0;
+
+    for (let index = 0; index < state.interessados.length; index++) {
+      const student = state.interessados[index];
+      if (student.diaSemana && student.horario) continue; // already has fixed day/time
+
+      const obs = normalizeText(student.observacoes || "");
+      let detectedDay = "";
+      if (obs.includes("domingo")) detectedDay = "domingo";
+      else if (obs.includes("segunda")) detectedDay = "segunda";
+      else if (obs.includes("terca") || obs.includes("terça")) detectedDay = "terca";
+      else if (obs.includes("quarta")) detectedDay = "quarta";
+      else if (obs.includes("quinta")) detectedDay = "quinta";
+      else if (obs.includes("sexta")) detectedDay = "sexta";
+      else if (obs.includes("sabado") || obs.includes("sábado")) detectedDay = "sabado";
+      else {
+        detectedDay = daysKeys[index % daysKeys.length];
+      }
+
+      let detectedTime = "";
+      const timeMatch = obs.match(/(\d{1,2})[h:](\d{2})?/i);
+      if (timeMatch) {
+        const hour = timeMatch[1].padStart(2, "0");
+        const min = timeMatch[2] ? timeMatch[2] : "00";
+        detectedTime = `${hour}:${min}`;
+      } else {
+        detectedTime = defaultTimes[index % defaultTimes.length];
+      }
+
+      await updateDoc(doc(db, "interessados", student.id), {
+        diaSemana: detectedDay,
+        agendaDiaSemana: detectedDay,
+        horario: detectedTime,
+        agendaHorario: detectedTime,
+        statusAgendamento: student.status === "Concluído" ? "Realizado" : "Confirmado",
+        agendaStatus: student.status === "Concluído" ? "Realizado" : "Confirmado",
+        atualizadoEm: new Date().toISOString(),
+        updatedAt: serverTimestamp()
+      });
+      updatedCount++;
+    }
+
+    showMessage(`${updatedCount} interessado(s) sincronizados com dias e horários na escala semanal!`, "success");
+    await refreshData();
+  } catch (error) {
+    console.error("Erro ao sincronizar escala:", error);
+    showMessage("Não foi possível sincronizar os estudos.", "error");
+  } finally {
+    hideLoading();
+  }
+}
+
 /* =========================
    EVENTOS
 ========================= */
@@ -3415,6 +4755,132 @@ locaisList?.addEventListener("click", async (event) => {
       showMessage("Erro ao exportar relatório.", "error");
     }
   });
+
+  // CONTROLE DE ESTUDOS LISTENERS
+  openAgendaModalBtn?.addEventListener("click", () => {
+    openAgendaModal();
+  });
+
+  closeAgendaModalBtn?.addEventListener("click", closeAgendaModal);
+  agendaModalCancelBtn?.addEventListener("click", closeAgendaModal);
+
+  agendaModalBackdrop?.addEventListener("click", (event) => {
+    if (event.target === agendaModalBackdrop) {
+      closeAgendaModal();
+    }
+  });
+
+  agendaForm?.addEventListener("submit", handleAgendaSubmit);
+  seedAgendaBtn?.addEventListener("click", syncAgendaFromInteressados);
+
+  agendaInteressadoSelect?.addEventListener("change", (event) => {
+    const studentId = event.target.value;
+    if (!studentId) return;
+
+    const student = state.interessados.find((s) => s.id === studentId);
+    if (!student) return;
+
+    const res = resolveInteressadoFullData(student, state);
+    if (agendaInteressadoNome) agendaInteressadoNome.value = res.nome;
+    if (agendaInteressadoTelefone) agendaInteressadoTelefone.value = res.telefone !== "Sem telefone" ? res.telefone : "";
+    if (agendaEndereco) agendaEndereco.value = res.endereco !== "Sem endereço cadastrado" ? res.endereco : "";
+    if (agendaIgreja && !agendaIgreja.disabled && res.igrejaId) {
+      agendaIgreja.value = res.igrejaId;
+    }
+    if (agendaSerie && res.serieId) {
+      agendaSerie.value = res.serieId;
+    }
+    if (agendaLicao) {
+      agendaLicao.value = Number(res.estudoAtual || 0) + 1;
+    }
+    if (agendaInstrutor && !agendaInstrutor.disabled) {
+      if (Array.isArray(student.instrutores) && student.instrutores.length && student.instrutores[0].id) {
+        agendaInstrutor.value = student.instrutores[0].id;
+      } else if (Array.isArray(student.instrutorIds) && student.instrutorIds.length) {
+        agendaInstrutor.value = student.instrutorIds[0];
+      }
+    }
+  });
+
+  btnViewSemana?.addEventListener("click", () => {
+    state.agendaViewMode = "semana";
+    renderAgendaSection();
+  });
+
+  btnViewDia?.addEventListener("click", () => {
+    state.agendaViewMode = "dia";
+    renderAgendaSection();
+  });
+
+  btnViewLista?.addEventListener("click", () => {
+    state.agendaViewMode = "lista";
+    renderAgendaSection();
+  });
+
+  agendaPrevWeekBtn?.addEventListener("click", () => {
+    state.agendaWeekOffset = (state.agendaWeekOffset || 0) - 1;
+    renderAgendaSection();
+  });
+
+  agendaCurrentWeekBtn?.addEventListener("click", () => {
+    state.agendaWeekOffset = 0;
+    renderAgendaSection();
+  });
+
+  agendaNextWeekBtn?.addEventListener("click", () => {
+    state.agendaWeekOffset = (state.agendaWeekOffset || 0) + 1;
+    renderAgendaSection();
+  });
+
+  agendaSearchInput?.addEventListener("input", (e) => {
+    state.agendaSearchQuery = e.target.value;
+    renderAgendaSection();
+  });
+
+  agendaIgrejaFilter?.addEventListener("change", (e) => {
+    state.agendaIgrejaFilter = e.target.value;
+    renderAgendaSection();
+  });
+
+  agendaInstrutorFilter?.addEventListener("change", (e) => {
+    state.agendaInstrutorFilter = e.target.value;
+    renderAgendaSection();
+  });
+
+  agendaDiaFilter?.addEventListener("change", (e) => {
+    state.agendaDiaFilter = e.target.value;
+    renderAgendaSection();
+  });
+
+  agendaStatusFilter?.addEventListener("change", (e) => {
+    state.agendaStatusFilter = e.target.value;
+    renderAgendaSection();
+  });
+
+  agendaContentArea?.addEventListener("click", async (event) => {
+    const completeBtn = event.target.closest("[data-complete-study]");
+    const waBtn = event.target.closest("[data-wa-study]");
+    const editBtn = event.target.closest("[data-edit-study]");
+    const delBtn = event.target.closest("[data-delete-study]");
+    const addDayBtn = event.target.closest("[data-add-day-study]");
+    const selectDayBtn = event.target.closest("[data-select-day]");
+
+    if (completeBtn) {
+      await completeStudyAppointment(completeBtn.dataset.completeStudy);
+    } else if (waBtn) {
+      openWhatsAppMessage(waBtn.dataset.waStudy);
+    } else if (editBtn) {
+      await editAgendaStudy(editBtn.dataset.editStudy);
+    } else if (delBtn) {
+      await deleteAgendaStudy(delBtn.dataset.deleteStudy);
+    } else if (addDayBtn) {
+      openAgendaModal(null, addDayBtn.dataset.addDayStudy);
+    } else if (selectDayBtn) {
+      state.selectedAgendaDayKey = selectDayBtn.dataset.selectDay;
+      state.agendaViewMode = "dia";
+      renderAgendaSection();
+    }
+  });
 }
 
 /* =========================================================
@@ -3595,6 +5061,7 @@ function renderAll() {
   renderUsuariosList();
   renderLocaisList();
   renderInstrutoresSection();
+  renderAgendaSection();
   renderRelatoriosSection();
 
   applyRoleUI();
@@ -3620,5 +5087,8 @@ window.esplanadaApp = {
   editSerie,
   deleteSerie,
   editLocal,
-  deleteLocal
+  deleteLocal,
+  openAgendaModal,
+  syncAgendaFromInteressados,
+  deleteAgendaStudy
 };
